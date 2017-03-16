@@ -624,7 +624,7 @@ __isr_helper void c_lapic(int x){
 __isr_helper void c_lapic_internal(int x){
   uint32_t esp;
   asm volatile ("mov %%esp,%0":"=r"(esp)::);
-  if(x==4){
+  if(x==lapic_internal_spurious){
     lapic_eoi(); //spurious
     return;
   }

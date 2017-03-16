@@ -3,7 +3,9 @@
 #define MULTIBOOT_HEADER_MAGIC  0x1BADB002
 #define OP_ADDR16               0x66
 #define OP_JMP                  0xea
+#define LOWPC_RELATIVE(x,y)     leal (x-g_ia32_start16)(%edi),y
 #define PC_RELATIVE(x,y)        leal (x-g_ia32_start16)(%ebx),y
+#define UNPC_RELATIVE(x,y)      leal (g_ia32_start16-x)(%ebx),y
 
 
 .text
@@ -35,7 +37,7 @@ s_rank:
    .long   0
 s_mastermsg:
    .long   0
-s_mymsg:
+s_sharedmsg:
    .long   0
 .align 16
 s_pooltmp2:
@@ -50,6 +52,7 @@ s_pstack:
 
 boot16:
    cli
+   cld
 
    # real mode.  make sure DS is zero.
    xorw %ax, %ax
@@ -57,32 +60,39 @@ boot16:
    movw %ax, %es
    movw %ax, %ss
 
+   #
+   # make sure we readjust %ebx
+   # - starting location will be CS*16
+   #
+   xorl %edi, %edi
+   movw %cs,  %di
+   shl  $4,   %di
+
+   LOWPC_RELATIVE(tmp_stackbottom, %esp)
+   #pushl $0
+   #popf
 
    #
    #self patching code
-   # - starting location will be CS*16
    #
-   xorl %ebx, %ebx
-   movw %cs,  %bx
-   shl  $4,   %bx
-   PC_RELATIVE(patch1, %esi)
-   addl %ebx, (%esi)
-   PC_RELATIVE(patch2, %esi)
-   addl %ebx, (%esi)
-   PC_RELATIVE(patch3, %esi)
-   addl %ebx, (%esi)
+   LOWPC_RELATIVE(spatch0, %esi)
+   addl %edi, (%esi) # patch with edi not ebx
+   LOWPC_RELATIVE(spatch1, %esi)
+   addl %edi, (%esi)
+   LOWPC_RELATIVE(spatch2, %esi)
+   addl %edi, (%esi)
 
 
 
    # load gdt. and switch to 32 bit mode
-   PC_RELATIVE(gdtdesc_slave, %esi)
+   LOWPC_RELATIVE(gdtdesc_slave, %esi)
    lgdtl (%esi)
    movl %cr0, %eax
    orl  $1,   %eax
    movl %eax, %cr0
    .byte OP_ADDR16
    .byte OP_JMP
-patch1:
+spatch0:
    .long boot32 - g_ia32_start16
    .word (1<<3)
 
@@ -90,7 +100,7 @@ patch1:
 .code32
 boot32:
    # load Kernel Data segment
-   movw $(2<<3), %ax
+   movl $(2<<3), %eax
    movw %ax, %ds
    movw %ax, %es
    movw %ax, %ss
@@ -98,7 +108,7 @@ boot32:
    movw %ax, %fs
    movw %ax, %gs
    .byte OP_JMP
-patch2:
+spatch1:
    .long 1f - g_ia32_start16
    .word (1<<3)
 1:
@@ -106,68 +116,77 @@ patch2:
 
    # load stack, clear flags
    movl $0, %ebp
-   PC_RELATIVE(tmp_stackbottom, %esp)
+   LOWPC_RELATIVE(tmp_stackbottom, %esp)
 
    pushl $0
    popf
 
-   PC_RELATIVE(lapic_message, %esi)
+   # make sure we readjust %ebx
+   movl $g_ia32_start16, %ebx            # TODO: pass the load address as arg
+
+   LOWPC_RELATIVE(lapic_message, %esi)
    pushl %esi
-   movl $(hoh_debug_string), %esi
+   PC_RELATIVE(hoh_debug_string, %esi)   # first PC_RELATIVE
    call  *%esi
    addl $4, %esp
 
-
    #enable fpu and simd
-   movl  $fpu_simd_reset, %esi
+   PC_RELATIVE(fpu_simd_reset, %esi)
    call  *%esi
 
    # initialize mem
-   PC_RELATIVE(s_pcore, %esi)
+   LOWPC_RELATIVE(s_pcore, %esi)
    pushl %esi           # core pointer
-   PC_RELATIVE(s_pstack, %esi)
+   LOWPC_RELATIVE(s_pstack, %esi)
    pushl %esi           # stack pointer
-   PC_RELATIVE(s_pooltmp2, %esi)
+   LOWPC_RELATIVE(s_pooltmp2, %esi)
    pushl %esi           # s_pooltmp2 pointer
-   PC_RELATIVE(s_pooltmp, %esi)
+   LOWPC_RELATIVE(s_pooltmp, %esi)
    pushl %esi           # s_pooltmp pointer
-   PC_RELATIVE(s_mymsg, %esi)
-   pushl (%esi)         # mymsg
-   PC_RELATIVE(s_mastermsg, %esi)
+   LOWPC_RELATIVE(s_sharedmsg, %esi)
+   pushl (%esi)         # sharedmsg
+   LOWPC_RELATIVE(s_mastermsg, %esi)
    pushl (%esi)         # mastermsg
-   PC_RELATIVE(s_rank, %esi)
+   LOWPC_RELATIVE(s_rank, %esi)
    pushl (%esi)         # rank
 
-   # from now onwards, don't use PC_RELATIVE -- ebx cleared
-   movl  $core_mem_init, %esi
+   PC_RELATIVE(core_mem_init, %esi)
    call  *%esi
    addl  $28, %esp
 
 
-   PC_RELATIVE(s_pstack, %esi)
+   LOWPC_RELATIVE(s_pstack, %esi)
    movl (%esi), %esp    #stack
    movl $0, %ebp
 
    #reset core
-   PC_RELATIVE(s_pcore, %esi)
-   pushl (%esi)           # core
-   pushl $0               # rank
-   movl  $core_reset, %esi
+
+   LOWPC_RELATIVE(s_pcore, %esi)
+   pushl (%esi)            # core
+   LOWPC_RELATIVE(s_rank, %esi)
+   pushl (%esi)            # rank
+
+   #we couldve release boot loader data structure: we need to save core
+   #(gdt is also fine accord to x86)
+
+   PC_RELATIVE(core_reset, %esi)
    call  *%esi
-   addl  $8, %esp
+
+   # Let's reuse stack: NO addl  $8, %esp
+
+   # boot loader rw data structure not available beyond this point
 
    #core: main loop
-   PC_RELATIVE(s_pcore, %esi)
-   pushl (%esi)           # core
-   pushl $0               # rank
-   movl  $core_loop, %esi
+   # Let's reuse stack
+   PC_RELATIVE(core_loop, %esi)
    call  *%esi
    addl  $8, %esp
 
 
-   # should never reach
-   pushl $halt_message
-   movl $(hoh_debug_string), %esi
+   #core_boot returned!: disable interrupt and enter infinite loop
+   PC_RELATIVE(halt_message, %esi)
+   pushl (%esi)
+   PC_RELATIVE(hoh_debug_string, %esi)
    call  *%esi
    addl  $4, %esp
 
@@ -202,8 +221,29 @@ patch2:
 .code32
 start:
 _start:
+
+   # save args eax and ebx in other regs
+   movl %ebx, %edi
+
+   #rely on grub2 stack for a moment - we need to compute PC
+   # make sure we readjust %ebx
+   call 1f
+1:
+   popl %ebx
+   UNPC_RELATIVE(1b, %ebx)
+
+   #
+   #self patching code
+   #
+   PC_RELATIVE(mpatch1, %esi)
+   addl %ebx, (%esi)
+   PC_RELATIVE(mpatch2, %esi)
+   addl %ebx, (%esi)
+
+
    # load gdt and kernel data segment
-   lgdtl gdtdesc_master
+   PC_RELATIVE(gdtdesc_master, %esi)
+   lgdtl (%esi)
    movw $(2<<3), %cx
    movw %cx, %ds
    movw %cx, %es
@@ -211,13 +251,18 @@ _start:
    xorw %cx, %cx
    movw %cx, %fs
    movw %cx, %gs
-   ljmp $(1<<3), $1f
+
+   .byte OP_JMP
+mpatch1:
+   .long 1f - g_ia32_start16
+   .word (1<<3)
+
 1:
    nop
 
    #set stack
    movl $0, %ebp
-   movl  $tmp_stackbottom, %esp
+   PC_RELATIVE(tmp_stackbottom, %esp)
 
    #clear flags
    pushl $0
@@ -225,48 +270,66 @@ _start:
 
    #enable fpu and simd
    pushl %eax
-   call  fpu_simd_reset
+   PC_RELATIVE(fpu_simd_reset, %esi)
+   call *%esi
    popl  %eax
 
    # initialize pooltmp
-   pushl $s_pooltmp
-   pushl $s_mymsg
-   pushl %ebx   # multiboot
-   pushl %eax   # magic
-   call  core_master_init
+   PC_RELATIVE(s_pooltmp, %esi)
+   pushl %esi          # s_pooltmp
+   PC_RELATIVE(s_sharedmsg, %esi)
+   pushl %esi          # s_sharedmsg
+   pushl %edi          # multiboot
+   pushl %eax          # magic
+   PC_RELATIVE(core_master_init, %esi)
+   call  *%esi
    addl  $16, %esp
 
    # initialize mem
-   pushl $(s_pcore)     # core pointer
-   pushl $(s_pstack)    # stack pointer
-   pushl $(s_pooltmp2)  # pooltmp2 pointer
-   pushl $(s_pooltmp)   # pooltmp  pointer
-   pushl s_mymsg        # mymesg
+   PC_RELATIVE(s_pcore, %esi)
+   pushl %esi           # core pointer
+   PC_RELATIVE(s_pstack, %esi)
+   pushl %esi           # stack pointer
+   PC_RELATIVE(s_pooltmp2, %esi)
+   pushl %esi           # s_pooltmp2 pointer
+   PC_RELATIVE(s_pooltmp, %esi)
+   pushl %esi           # s_pooltmp pointer
+   PC_RELATIVE(s_sharedmsg, %esi)
+   pushl (%esi)         # sharedmsg
    pushl $0             # mastermsg
    pushl $0             # rank
-   call  core_mem_init
+
+   PC_RELATIVE(core_mem_init, %esi)
+   call  *%esi
    addl  $28, %esp
 
 
    #set real stack
+   PC_RELATIVE(s_pstack, %esi)
+   movl (%esi), %esp    #stack
    movl $0, %ebp
-   movl s_pstack, %esp    #stack
 
    #reset core
-   pushl s_pcore
-   pushl $0             # rank
-   call  core_reset
+   PC_RELATIVE(s_pcore, %esi)
+   pushl (%esi)           # core
+   pushl $0               # rank
+   PC_RELATIVE(core_reset, %esi)
+   call  *%esi
    addl  $8, %esp
 
    #core: main loop
-   pushl s_pcore
-   pushl $0             # rank
-   call  core_loop
+   PC_RELATIVE(s_pcore, %esi)
+   pushl (%esi)           # core
+   pushl $0               # rank
+   PC_RELATIVE(core_loop, %esi)
+   call  *%esi
    addl  $8, %esp
 
    #core_boot returned!: disable interrupt and enter infinite loop
-   pushl $halt_message
-   call  hoh_debug_string
+   PC_RELATIVE(halt_message, %esi)
+   pushl (%esi)
+   PC_RELATIVE(hoh_debug_string, %esi)
+   call  *%esi
    addl  $4, %esp
 
    cli
@@ -283,15 +346,18 @@ halt_message:
 .align 16
 gdt:
    .byte 0,0,0,0,0,0,0,0
-   .byte 0xff,0xff,0,0,0,(0x90|(8|2)),(0xc0|0xf),0
-   .byte 0xff,0xff,0,0,0,(0x90|(2|1)),(0xc0|0xf),0
+   .byte 0xff,0xff,0,0,0,0x9a,(0xc0|0xf),0
+   .byte 0xff,0xff,0,0,0,0x93,(0xc0|0xf),0
+
+.align 16
 gdtdesc_master:
    .word (3*8-1)
-   .long gdt
+mpatch2:
+   .long (gdt-g_ia32_start16)
    .word 0
 gdtdesc_slave:
    .word (3*8-1)
-patch3:
+spatch2:
    .long (gdt-g_ia32_start16)
    .word 0
 

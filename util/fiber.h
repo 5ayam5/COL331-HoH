@@ -2,7 +2,7 @@
 
 #include <util/debug.h>
 
-#define _ALL_REGISTERS "ebx","edx","esi","edi"
+#define _ALL_REGISTERS "edx","esi","edi"
 
 
 //
@@ -28,6 +28,7 @@
  asm volatile(                                                       \
    "  pushl %%eax      \n\t"                                         \
    "  pushl %%ecx      \n\t"                                         \
+   "  pushl %%ebx      \n\t"                                         \
    "  pushl %%ebp      \n\t"                                         \
    "  pushl $1f        \n\t"                                         \
    "                   \n\t"                                         \
@@ -37,6 +38,7 @@
    "  ret              \n\t"                                         \
    "1:                 \n\t"                                         \
    "  popl %%ebp       \n\t"                                         \
+   "  popl %%ebx       \n\t"                                         \
    "  popl %%ecx       \n\t"                                         \
    "  popl %%eax       \n\t"                                         \
   :                                                                  \

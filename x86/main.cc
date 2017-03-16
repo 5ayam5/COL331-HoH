@@ -5,6 +5,7 @@
 #include "x86/main.h"
 #include "x86/except.h"     //exceptions and asm interface
 
+#include "util/multicore.h"
 
 //
 // initialize config
@@ -57,9 +58,14 @@ static void hal_reset(int rank,hal_t& hal){
 //
 extern "C" void core_reset(int rank, core_t& core){
   //serial::reset();
-  hoh_debug("core_reset begin");
+  hoh_debug(rank<<": core_reset begin");
+  hoh_assert(rank == core.rank, "XXX");
   hal_reset(core.rank,core.hal);
-  apps_reset(core.rank,core.apps);
+
+  if(rank==0){
+    remotecore_reset_helper<channels_t>(rank+1,rank,core.hal.cmos,core.hal.lapic,core.pool4M,core.shm);
+  }
+  apps_reset(core.rank,core.apps,core.shm);
 }
 
 //
@@ -69,9 +75,10 @@ extern "C" void core_reset(int rank, core_t& core){
 //
 extern "C" void core_loop(int rank, core_t* p_core){
   core_t& core=*p_core;
-  hoh_debug("core_loop begin");
+  hoh_assert(rank == core.rank, "XXX");
+  hoh_debug(rank<<": core_loop begin");
 
-  apps_loop(core.rank, &core.main_stack, &core.preempt, &core.apps, &core.hal.lapic);
+  apps_loop(core.rank, &core.main_stack, &core.preempt, &core.apps, &core.hal.lapic, &core.shm);
 }
 
 
@@ -81,7 +88,7 @@ extern "C" void core_loop(int rank, core_t* p_core){
 // called from boot.S
 //
 extern char g_end[];
-extern "C" void core_master_init(uint32_t magic, multiboot_info_t* pinfo, addr_t& mymem, bitpool_t& pool_tmp){
+extern "C" void core_master_init(uint32_t magic, multiboot_info_t* pinfo, addr_t& sharedmem, bitpool_t& pool_tmp){
   hoh_assert(magic == MULTIBOOT_BOOTLOADER_MAGIC,"magic="<<magic);
   hoh_assert(pinfo,"XXX");
   multiboot_info_t& info = *pinfo;
@@ -139,7 +146,7 @@ extern "C" void core_master_init(uint32_t magic, multiboot_info_t* pinfo, addr_t
 
   hoh_debug("Pool Size: "<<pool_tmp.remaining()<<" Pool="<<uint32_t(&pool_tmp));
   hoh_assert(pool_tmp.remaining() > 10, "Not enough memory");
-  mymem=alloc(pool_tmp);
+  sharedmem=alloc(pool_tmp);
 
 }
 
@@ -149,7 +156,7 @@ extern "C" void core_master_init(uint32_t magic, multiboot_info_t* pinfo, addr_t
 //
 // called from boot.S
 //
-extern "C" void core_mem_init(int rank, addr_t mastermsg, addr_t mymsg, bitpool_t& pool_tmp, bitpool_t& pool_tmp2, addr_t& ret_stack, addr_t& ret_core){
+extern "C" void core_mem_init(int rank, addr_t mastermsg, addr_t sharedmsg, bitpool_t& pool_tmp, bitpool_t& pool_tmp2, addr_t& ret_stack, addr_t& ret_core){
   hoh_debug("core "<<rank<<" initializing mem: "<<pool_tmp.remaining()<<" Pool="<<uint32_t(&pool_tmp));
   hoh_assert(canalloc(pool_tmp),"XXX");
 
@@ -172,7 +179,11 @@ extern "C" void core_mem_init(int rank, addr_t mastermsg, addr_t mymsg, bitpool_
 
   config_t config;
   config_init(rank, config);
-  auto pcore = allocT<core_t>(pool_tmp, rank,mastermsg, mymsg, pool_tmp,pool_tmp2,stack,stacksize,config);
+  auto pcore = allocT<core_t>(pool_tmp, rank, sharedmsg, pool_tmp,pool_tmp2,stack,stacksize,config);
+  if(mastermsg){
+    int master=0; //master boots all the remote core. TODO: Should've passed as an arg
+    pcore->shm.set(master,mastermsg);
+  }
 
   ret_core   = addr_t(pcore);
   ret_stack  = pcore->main_stackbegin+pcore->main_stacksize-8;

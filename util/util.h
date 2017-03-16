@@ -24,9 +24,13 @@ typedef uint32_t Index;
 
 template<typename T,typename... Args>
 static inline void construct(T* p, Args&&... args){
-  new (reinterpret_cast<void*>(p)) T{std::forward<Args>(args)...};
+  new (reinterpret_cast<void*>(p)) T(std::forward<Args>(args)...);
 }
 
+template<typename T>
+static inline void destroy(T* p){
+  p->~T();
+}
 
 #if 0
 template<int A, int B>
@@ -68,16 +72,12 @@ static inline bool bittest(uint64_t x, uint8_t i){
 }
 
 
-static inline addr_t nextalign(addr_t x, uint32_t align){
-  for(; uintptr_t(x)%align; x++){
-  }
-  return x;
+static inline addr_t prevalign(addr_t x, uint32_t align){
+  return addr_t((uintptr_t(x)/align) * align);
 }
 
-static inline addr_t prevalign(addr_t x, uint32_t align){
-  for(; uintptr_t(x)%align; x--){
-  }
-  return x;
+static inline addr_t nextalign(addr_t x, uint32_t align){
+  return prevalign(x+align-1,align);
 }
 
 
