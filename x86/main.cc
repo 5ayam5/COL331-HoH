@@ -33,7 +33,7 @@ extern "C" void core_boot(){
 
   { // Hello, world!
     const char* p="Hello, world!";
-    for(int loc=0;*p;loc+= 2,p++){
+    for(int loc=0;*p;loc++,p++){
       vgatext::writechar(loc,*p,0,7,s_core.vgatext_base);
     }
   }
