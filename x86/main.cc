@@ -8,9 +8,9 @@ struct core_t{
   int           vgatext_width;  //=80;
   int           vgatext_height; //=25;
 
-  shellstate_t  shell_state;
+  // shellstate_t  shell_state;
 
-  renderstate_t render_state; //separate renderstate from shellstate
+  // renderstate_t render_state; //separate renderstate from shellstate
 
   lpc_kbd_t     lpc_kbd;
 };
@@ -40,7 +40,7 @@ extern "C" void core_boot(){
 
   hoh_debug("Hello, serial!");
 
-  // core_loop(&s_core);
+  core_loop(&s_core);
 }
 
 
@@ -56,9 +56,9 @@ extern "C" void core_init(core_t& core){
 
   lpc_kbd_initialize(&core.lpc_kbd,0x60);
 
-  shell_init(core.shell_state);
+  //shell_init(core.shell_state);
 
-  shell_render(core.shell_state, core.render_state);
+  //shell_render(core.shell_state, core.render_state);
 }
 
 
@@ -77,7 +77,7 @@ extern "C" void core_reset(core_t& core){
 extern "C" void core_loop(core_t* p_core){
   core_t& core=*p_core;
   hoh_debug("core_loop: esp=");
-  render(core.render_state, core.vgatext_width, core.vgatext_height, core.vgatext_base);
+  //render(core.render_state, core.vgatext_width, core.vgatext_height, core.vgatext_base);
   for(;;){
     core_loop_step(core);
   }
@@ -90,16 +90,19 @@ extern "C" void core_loop(core_t* p_core){
 //
 static void core_loop_step(core_t& core){
   uint8_t       input;
-  renderstate_t rendertmp;
+  // renderstate_t rendertmp;
 
 
   if(!lpc_kbd::has_key(core.lpc_kbd)){
-    goto nokey;
+    // goto nokey;
+    return;
   }
 
   input=lpc_kbd::get_key(core.lpc_kbd);
 
-  if(input & 0x80){
+  hoh_debug("Got key: " << input);
+
+  /*if(input & 0x80){
     goto nokey;
   }
 
@@ -128,5 +131,5 @@ nokey:
   render(core.render_state, core.vgatext_width, core.vgatext_height, core.vgatext_base);
 
 done:
-  return;
+  return; */
 }
