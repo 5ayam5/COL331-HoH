@@ -38,7 +38,7 @@ extern "C" void core_boot(){
     }
   }
 
-  // hoh_debug("Hello, serial!");
+  hoh_debug("Hello, serial!");
 
   // core_loop(&s_core);
 }
