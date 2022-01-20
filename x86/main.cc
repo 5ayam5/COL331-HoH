@@ -33,14 +33,14 @@ extern "C" void core_boot(){
 
   { // Hello, world!
     const char* p="Hello, world!";
-    for(int loc=0;*p;loc++,p++){
+    for(int loc=0;*p;loc+= 2,p++){
       vgatext::writechar(loc,*p,0,7,s_core.vgatext_base);
     }
   }
 
-  hoh_debug("Hello, serial!");
+  // hoh_debug("Hello, serial!");
 
-  core_loop(&s_core);
+  // core_loop(&s_core);
 }
 
 
