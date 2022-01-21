@@ -14,6 +14,21 @@ uint8_t strlen(const char *str){
   return len;
 }
 
+uint32_t str_to_int(const char *str){
+  uint8_t len = strlen(str);
+  uint32_t val = 0;
+  for (uint8_t i = 0; i < len; i++)
+    val = val * 10 + str[i] - '0';
+  // hoh_debug(val<<" "<<str);
+  return val;
+}
+
+void parseArgs(char input[MAX_ARGS][BUF_LEN], uint8_t curr_arg, uint32_t *output){
+  for(int i=0;i<curr_arg;i++){
+    output[i] = str_to_int(input[i]);
+  }
+}
+
 //
 // initialize shellstate
 //
@@ -69,9 +84,7 @@ void shell_init(shellstate_t& state){
 // - for example, you may want to handle up(0x48),down(0x50) arrow keys for menu.
 //
 
-
-// using the table given above, make the mapping
-char key_mapping(int scancode){
+char key_mapping(uint8_t scancode){
   char key = 0;
   switch(scancode){
     case 0x02:
@@ -182,6 +195,8 @@ char key_mapping(int scancode){
     case 0x32:
       key = 'm';
       break;
+    default:
+      key = -1;
   }
   return key;
 }
@@ -192,20 +207,28 @@ void changeState(shellstate_t& stateinout){
   if(stateinout.state == 0){
     if(stateinout.highlighted == 0){
       newState = 1;
-    }
-    else if(stateinout.highlighted == 1){
+    }else if(stateinout.highlighted == 1){
       newState = 2;
     }
-  }
-  else if(stateinout.state == 1){
+  }else if(stateinout.state == 1){
+    switch(stateinout.highlighted){
+      case 0: 
+        newState = 3;
+        break;
+      case 1:
+        newState = 4;
+        break;
+      case 2:
+        newState = 0;
+        break;  
+    }
+  }else if(stateinout.state == 2){
     if(stateinout.highlighted == 2){
       newState = 0;
     }
-  }
-  else if(stateinout.state == 2){
-    if(stateinout.highlighted == 2){
-      newState = 0;
-    }
+  }else if(stateinout.state >= 3){
+    stateinout.curr_arg++;
+    return;
   }
   stateinout.state = newState;
   stateinout.highlighted = 0;
@@ -234,6 +257,7 @@ void changeState(shellstate_t& stateinout){
 
 void shell_update(uint8_t scankey, shellstate_t& stateinout){
   stateinout.key_count++;
+  uint8_t arg = stateinout.curr_arg;
   switch (scankey){
     case 0x4b:
       if (stateinout.highlighted > 0)
@@ -245,13 +269,23 @@ void shell_update(uint8_t scankey, shellstate_t& stateinout){
       break;
     case 0x1c:
       changeState(stateinout);
-      break;  
-    default:
-      uint8_t arg = stateinout.curr_arg;
-      if(stateinout.input_len[arg] < BUF_LEN-1){
-        stateinout.input[arg][stateinout.input_len[arg]++] = (char)scankey;
-        stateinout.input[arg][stateinout.input_len[arg]] = 0;
+      break;
+    case 0x0e:
+      if(stateinout.state>2){
+        if(stateinout.input_len[arg] > 0){
+          stateinout.input[arg][--stateinout.input_len[arg]] = 0;
+        }
       }
+      break;
+    default:
+      if(stateinout.state>2){
+        char key = key_mapping(scankey);
+        if(stateinout.input_len[arg] < BUF_LEN-1 && key != -1){
+          stateinout.input[arg][stateinout.input_len[arg]++] = key;
+          stateinout.input[arg][stateinout.input_len[arg]] = 0;
+        }
+      }
+      break;
   }
   hoh_debug("Got: "<<unsigned(scankey));
 }
@@ -261,14 +295,16 @@ void shell_update(uint8_t scankey, shellstate_t& stateinout){
 // do computation
 //
 void shell_step(shellstate_t& stateinout){
-
-  //
-  //one way:
-  // if a function is enabled in stateinout
-  //   call that function( with arguments stored in stateinout) ;
-//stateinout.args[0] = 5;
-//stateinout.args[1] = 5;
-  //
+  if(stateinout.state < 3){
+    return;
+  }else if (stateinout.state <= 7){
+    if(stateinout.curr_arg < 2){
+      return;
+    }
+    uint32_t args[MAX_ARGS];
+    parseArgs(stateinout.input, stateinout.curr_arg,args);
+    hoh_debug("args: "<<args[0]<<" "<<args[1]);
+  }
 }
 
 
@@ -319,7 +355,7 @@ void render(const renderstate_t& state, int w, int h, addr_t vgatext_base){
   }
   fillrect(0, 0, w, h-3, 0x0, 0x0, w, h, vgatext_base);
   for(int i=0;i<MAX_ARGS;i++){
-    drawtext(0, 0, state.input[i], BUF_LEN, 0x0, 0x7, w, h, vgatext_base);
+    drawtext(0, i, state.input[i], BUF_LEN, 0x0, 0x7, w, h, vgatext_base);
   }
   drawrect(0, h - 3, w, h, 0x7, 0x0, w, h, vgatext_base);
   drawnumberinhex(w - 10, h - 2, state.key_count, 8, 0, 0x7, w, h, vgatext_base);
