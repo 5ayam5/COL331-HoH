@@ -5,8 +5,8 @@
 struct shellstate_t{
   uint32_t key_count;
   const char *options[100];
-  uint8_t len, highlighted, state;
-  void *output;
+  uint8_t len, highlighted, state, execution;
+  const char *output;
 };
 
 struct renderstate_t{

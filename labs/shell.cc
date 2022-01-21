@@ -1,10 +1,17 @@
 #include "labs/shell.h"
 #include "labs/vgatext.h"
 
-bool strcmp(const char *a, const char *b) {
+bool strcmp(const char *a, const char *b){
   while (*a && *b && *a == *b)
     a++;
   return *a == *b;
+}
+
+uint8_t strlen(const char *str){
+  uint8_t len = 0;
+  while (*str++)
+    len++;
+  return len;
 }
 
 //
@@ -12,12 +19,13 @@ bool strcmp(const char *a, const char *b) {
 //
 void shell_init(shellstate_t& state){
   state.key_count = 0;
-  state.options[0] = "test0";
-  state.options[1] = "test1";
+  state.options[0] = "functions";
+  state.options[1] = "settings";
   state.len = 2;
   state.highlighted = 0;
   state.state = 0;
-  state.output = (void *)"out";
+  state.execution = 0;
+  state.output = NULL;
 }
 
 //
@@ -53,6 +61,16 @@ void shell_init(shellstate_t& state){
 //
 void shell_update(uint8_t scankey, shellstate_t& stateinout){
   stateinout.key_count++;
+  switch (scankey){
+    case 0x4b:
+      if (stateinout.highlighted > 0)
+        stateinout.highlighted--;
+      break;
+    case 0x4d:
+      if (stateinout.highlighted < stateinout.len - 1)
+        stateinout.highlighted++;
+      break;
+  }
   hoh_debug("Got: "<<unsigned(scankey));
 }
 
@@ -77,6 +95,12 @@ void shell_step(shellstate_t& stateinout){
 //
 void shell_render(const shellstate_t& shell, renderstate_t& render){
   render.key_count = shell.key_count;
+  render.len = shell.len;
+  for (int i = 0; i < shell.len; i++){
+    render.options[i] = shell.options[i];
+  }
+  render.highlighted = shell.highlighted;
+  render.output = shell.output;
 }
 
 
@@ -104,7 +128,16 @@ static void drawnumberinhex(int x,int y, uint32_t number, int maxw, uint8_t bg, 
 // Given a render state, we need to write it into vgatext buffer
 //
 void render(const renderstate_t& state, int w, int h, addr_t vgatext_base){
-  drawnumberinhex(5, 5, state.key_count, 8, 0, 0x7, w, h, vgatext_base);
+  drawrect(0, h - 3, w, h, 0x7, 0x0, w, h, vgatext_base);
+  drawnumberinhex(w - 10, h - 2, state.key_count, 8, 0, 0x7, w, h, vgatext_base);
+  uint8_t loc = 2;
+  for (int i = 0; i < state.len; ++i){
+    if (i == state.highlighted)
+      drawtext(loc, h - 2, state.options[i], 10, 0x2, 0x6, w, h, vgatext_base);
+    else
+      drawtext(loc, h - 2, state.options[i], 10, 0, 0x7, w, h, vgatext_base);
+    loc += strlen(state.options[i]) + 4;
+  }
 }
 
 
@@ -152,10 +185,10 @@ static void drawrect(int x0, int y0, int x1, int y1, uint8_t bg, uint8_t fg, int
 
 static void drawtext(int x,int y, const char* str, int maxw, uint8_t bg, uint8_t fg, int w, int h, addr_t vgatext_base){
   for(int i=0;i<maxw;i++){
-    writecharxy(x+i,y,str[i],bg,fg,w,h,vgatext_base);
     if(!str[i]){
       break;
     }
+    writecharxy(x+i,y,str[i],bg,fg,w,h,vgatext_base);
   }
 }
 
