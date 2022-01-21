@@ -1,10 +1,23 @@
 #include "labs/shell.h"
 #include "labs/vgatext.h"
 
+bool strcmp(const char *a, const char *b) {
+  while (*a && *b && *a == *b)
+    a++;
+  return *a == *b;
+}
+
 //
 // initialize shellstate
 //
 void shell_init(shellstate_t& state){
+  state.key_count = 0;
+  state.options[0] = "test0";
+  state.options[1] = "test1";
+  state.len = 2;
+  state.highlighted = 0;
+  state.state = 0;
+  state.output = (void *)"out";
 }
 
 //
@@ -39,8 +52,8 @@ void shell_init(shellstate_t& state){
 // - for example, you may want to handle up(0x48),down(0x50) arrow keys for menu.
 //
 void shell_update(uint8_t scankey, shellstate_t& stateinout){
-
-    hoh_debug("Got: "<<unsigned(scankey));
+  stateinout.key_count++;
+  hoh_debug("Got: "<<unsigned(scankey));
 }
 
 
@@ -63,16 +76,7 @@ void shell_step(shellstate_t& stateinout){
 // shellstate --> renderstate
 //
 void shell_render(const shellstate_t& shell, renderstate_t& render){
-
-  //
-  // renderstate. number of keys pressed = shellstate. number of keys pressed
-  //
-  // renderstate. menu highlighted = shellstate. menu highlighted
-  //
-  // renderstate. function result = shellstate. output argument
-  //
-  // etc.
-  //
+  render.key_count = shell.key_count;
 }
 
 
@@ -80,9 +84,17 @@ void shell_render(const shellstate_t& shell, renderstate_t& render){
 // compare a and b
 //
 bool render_eq(const renderstate_t& a, const renderstate_t& b){
+  bool ret = a.key_count == b.key_count && a.len == b.len && a.highlighted == b.highlighted && strcmp(a.output, b.output) == 0;
+  if (!ret)
+    return ret;
+  for (int i = 0; i < a.len; i++){
+    ret = ret && strcmp(a.options[i], b.options[i]) == 0;
+  }
+  return ret;
 }
 
 
+static void writecharxy(int x, int y, uint8_t c, uint8_t bg, uint8_t fg, int w, int h, addr_t vgatext_base);
 static void fillrect(int x0, int y0, int x1, int y1, uint8_t bg, uint8_t fg, int w, int h, addr_t vgatext_base);
 static void drawrect(int x0, int y0, int x1, int y1, uint8_t bg, uint8_t fg, int w, int h, addr_t vgatext_base);
 static void drawtext(int x,int y, const char* str, int maxw, uint8_t bg, uint8_t fg, int w, int h, addr_t vgatext_base);
@@ -92,16 +104,7 @@ static void drawnumberinhex(int x,int y, uint32_t number, int maxw, uint8_t bg, 
 // Given a render state, we need to write it into vgatext buffer
 //
 void render(const renderstate_t& state, int w, int h, addr_t vgatext_base){
-
-
-  // this is just an example:
-  //
-  // Please create your own user interface
-  //
-  // You may also have simple command line user interface
-  // or menu based interface or a combination of both.
-  //
-
+  drawnumberinhex(5, 5, state.key_count, 8, 0, 0x7, w, h, vgatext_base);
 }
 
 

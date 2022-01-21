@@ -3,9 +3,17 @@
 #include "util/debug.h"
 
 struct shellstate_t{
+  uint32_t key_count;
+  const char *options[100];
+  uint8_t len, highlighted, state;
+  void *output;
 };
 
 struct renderstate_t{
+  uint32_t key_count;
+  const char *options[100];
+  uint8_t len, highlighted;
+  const char *output;
 };
 
 void shell_init(shellstate_t& state);
