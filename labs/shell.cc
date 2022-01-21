@@ -17,6 +17,9 @@ uint8_t strlen(const char *str){
 //
 // initialize shellstate
 //
+
+
+//functions settings
 void shell_init(shellstate_t& state){
   state.key_count = 0;
   state.options[0] = "functions";
@@ -26,6 +29,12 @@ void shell_init(shellstate_t& state){
   state.state = 0;
   state.execution = 0;
   state.output = NULL;
+  for(int i=0;i<MAX_ARGS;i++){
+    state.input[i][0] = 0;
+    state.input_len[i] = 0;
+  }
+  state.refresh = 0;
+  state.curr_arg = 0;
 }
 
 //
@@ -59,6 +68,51 @@ void shell_init(shellstate_t& state){
 // - only handle the keys which you're interested in
 // - for example, you may want to handle up(0x48),down(0x50) arrow keys for menu.
 //
+void changeState(shellstate_t& stateinout){
+  int8_t newState;
+  if(stateinout.state == 0){
+    if(stateinout.highlighted == 0){
+      newState = 1;
+    }
+    else if(stateinout.highlighted == 1){
+      newState = 2;
+    }
+  }
+  else if(stateinout.state == 1){
+    if(stateinout.highlighted == 2){
+      newState = 0;
+    }
+  }
+  else if(stateinout.state == 2){
+    if(stateinout.highlighted == 2){
+      newState = 0;
+    }
+  }
+  stateinout.state = newState;
+  stateinout.highlighted = 0;
+  stateinout.output = NULL;
+  stateinout.refresh=1;
+  switch(newState){
+    case 0: 
+      stateinout.len = 2;
+      stateinout.options[0] = "functions";
+      stateinout.options[1] = "settings";
+      break;
+    case 1:
+      stateinout.len = 3;
+      stateinout.options[0] = "factorial";
+      stateinout.options[1] = "fibonacci";
+      stateinout.options[2] = "back";
+      break;
+    case 2:
+      stateinout.len = 3;
+      stateinout.options[0] = "color";
+      stateinout.options[1] = "reset";
+      stateinout.options[2] = "back";
+      break;
+  }
+}
+
 void shell_update(uint8_t scankey, shellstate_t& stateinout){
   stateinout.key_count++;
   switch (scankey){
@@ -70,6 +124,15 @@ void shell_update(uint8_t scankey, shellstate_t& stateinout){
       if (stateinout.highlighted < stateinout.len - 1)
         stateinout.highlighted++;
       break;
+    case 0x1c:
+      changeState(stateinout);
+      break;  
+    default:
+      uint8_t arg = stateinout.curr_arg;
+      if(stateinout.input_len[arg] < BUF_LEN-1){
+        stateinout.input[arg][stateinout.input_len[arg]++] = (char)scankey;
+        stateinout.input[arg][stateinout.input_len[arg]] = 0;
+      }
   }
   hoh_debug("Got: "<<unsigned(scankey));
 }
@@ -101,6 +164,10 @@ void shell_render(const shellstate_t& shell, renderstate_t& render){
   }
   render.highlighted = shell.highlighted;
   render.output = shell.output;
+  render.refresh = shell.refresh;
+  for(int i = 0; i < MAX_ARGS; i++){
+    render.input[i] = shell.input[i];
+  }
 }
 
 
@@ -108,7 +175,7 @@ void shell_render(const shellstate_t& shell, renderstate_t& render){
 // compare a and b
 //
 bool render_eq(const renderstate_t& a, const renderstate_t& b){
-  bool ret = a.key_count == b.key_count && a.len == b.len && a.highlighted == b.highlighted && strcmp(a.output, b.output) == 0;
+  bool ret = a.key_count == b.key_count && a.len == b.len && a.highlighted == b.highlighted && a.refresh == b.refresh && strcmp(a.output, b.output) == 0;
   if (!ret)
     return ret;
   for (int i = 0; i < a.len; i++){
@@ -128,6 +195,13 @@ static void drawnumberinhex(int x,int y, uint32_t number, int maxw, uint8_t bg, 
 // Given a render state, we need to write it into vgatext buffer
 //
 void render(const renderstate_t& state, int w, int h, addr_t vgatext_base){
+  if(state.refresh){
+    fillrect(0, h - 3, w, h, 0x0, 0x0, w, h, vgatext_base);
+  }
+  fillrect(0, 0, w, h-3, 0x0, 0x0, w, h, vgatext_base);
+  for(int i=0;i<MAX_ARGS;i++){
+    drawtext(0, 0, state.input[i], BUF_LEN, 0x0, 0x7, w, h, vgatext_base);
+  }
   drawrect(0, h - 3, w, h, 0x7, 0x0, w, h, vgatext_base);
   drawnumberinhex(w - 10, h - 2, state.key_count, 8, 0, 0x7, w, h, vgatext_base);
   uint8_t loc = 2;
