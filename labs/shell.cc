@@ -68,6 +68,125 @@ void shell_init(shellstate_t& state){
 // - only handle the keys which you're interested in
 // - for example, you may want to handle up(0x48),down(0x50) arrow keys for menu.
 //
+
+
+// using the table given above, make the mapping
+char key_mapping(int scancode){
+  char key = 0;
+  switch(scancode){
+    case 0x02:
+      key = '1';
+      break;
+    case 0x03:
+      key = '2';
+      break;
+    case 0x04:
+      key = '3';
+      break;
+    case 0x05:
+      key = '4';
+      break;
+    case 0x06:
+      key = '5';
+      break;
+    case 0x07:
+      key = '6';
+      break;
+    case 0x08:
+      key = '7';
+      break;
+    case 0x09:
+      key = '8';
+      break;
+    case 0x0a:
+      key = '9';
+      break;
+    case 0x0b:
+      key = '0';
+      break;
+    case 0x10:
+      key = 'q';
+      break;
+    case 0x11:
+      key = 'w';
+      break;
+    case 0x12:
+      key = 'e';
+      break;
+    case 0x13:
+      key = 'r';
+      break;
+    case 0x14:
+      key = 't';
+      break;
+    case 0x15:
+      key = 'y';
+      break;
+    case 0x16:
+      key = 'u';
+      break;
+    case 0x17:
+      key = 'i';
+      break;
+    case 0x18:
+      key = 'o';
+      break;
+    case 0x19:
+      key = 'p';
+      break;
+    case 0x1e:
+      key = 'a';
+      break;
+    case 0x1f:
+      key = 's';
+      break;  
+    case 0x20:
+      key = 'd';
+      break;
+    case 0x21:
+      key = 'f';
+      break;
+    case 0x22:
+      key = 'g';
+      break;
+    case 0x23: 
+      key = 'h';
+      break;
+    case 0x24:
+      key = 'j';
+      break;
+    case 0x25:
+      key = 'k';
+      break;
+    case 0x26:
+      key = 'l';
+      break;
+    case 0x2c:
+      key = 'z';
+      break;
+    case 0x2d:
+      key = 'x';
+      break;
+    case 0x2e:
+      key = 'c';
+      break;
+    case 0x2f:
+      key = 'v';
+      break;
+    case 0x30:
+      key = 'b';
+      break;
+    case 0x31:
+      key = 'n';
+      break;
+    case 0x32:
+      key = 'm';
+      break;
+  }
+  return key;
+}
+
+
 void changeState(shellstate_t& stateinout){
   int8_t newState;
   if(stateinout.state == 0){
