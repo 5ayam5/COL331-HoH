@@ -1,6 +1,8 @@
 #include "labs/shell.h"
 #include "labs/vgatext.h"
 
+// helpful functions
+
 bool strcmp(const char *a, const char *b){
   while (*a && *b && *a == *b)
     a++;
@@ -23,10 +25,48 @@ uint32_t str_to_int(const char *str){
   return val;
 }
 
-void parseArgs(char input[MAX_ARGS][BUF_LEN], uint8_t curr_arg, uint32_t *output){
+void parse_args(char input[MAX_ARGS][BUF_LEN], uint8_t curr_arg, uint32_t *output){
   for(int i=0;i<curr_arg;i++){
     output[i] = str_to_int(input[i]);
   }
+}
+
+void int_to_string(uint32_t val, char *buf){
+  if (val == 0) {
+    buf[0] = '0';
+    buf[1] = '\0';
+    return;
+  }
+  uint8_t len = 0;
+  while (val) {
+    buf[len++] = '0' + val % 10;
+    val /= 10;
+  }
+  buf[len] = '\0';
+  for (uint8_t i = 0; i < len / 2; i++) {
+    char tmp = buf[i];
+    buf[i] = buf[len - i - 1];
+    buf[len - i - 1] = tmp;
+  }
+}
+
+// shell commands
+
+void factorial(uint32_t n, char *buf){
+  uint32_t ret = n;
+  while (n > 1)
+    ret *= --n;
+  int_to_string(ret, buf);
+}
+
+void fibonacci(uint32_t n, char *buf){
+  uint32_t a = 0, b = 1, c = 0;
+  while (n--) {
+    c = a + b;
+    a = b;
+    b = c;
+  }
+  int_to_string(c, buf);
 }
 
 //
@@ -42,13 +82,11 @@ void shell_init(shellstate_t& state){
   state.len = 2;
   state.highlighted = 0;
   state.state = 0;
-  state.execution = 0;
-  state.output = NULL;
   for(int i=0;i<MAX_ARGS;i++){
     state.input[i][0] = 0;
     state.input_len[i] = 0;
   }
-  state.refresh = 0;
+  state.refresh = 7;
   state.curr_arg = 0;
 }
 
@@ -203,37 +241,38 @@ char key_mapping(uint8_t scancode){
 
 
 void changeState(shellstate_t& stateinout){
-  int8_t newState;
+  uint8_t newState;
   if(stateinout.state == 0){
     if(stateinout.highlighted == 0){
       newState = 1;
     }else if(stateinout.highlighted == 1){
       newState = 2;
     }
-  }else if(stateinout.state == 1){
+  } else if(stateinout.state == 1){
     switch(stateinout.highlighted){
       case 0: 
-        newState = 3;
-        break;
+        stateinout.state = 16;
+        stateinout.max_args = 1;
+        return;
       case 1:
-        newState = 4;
-        break;
+        stateinout.state = 17;
+        stateinout.max_args = 1;
+        return;
       case 2:
         newState = 0;
         break;  
     }
-  }else if(stateinout.state == 2){
+  } else if(stateinout.state == 2){
     if(stateinout.highlighted == 2){
       newState = 0;
     }
-  }else if(stateinout.state >= 3){
+  } else if(stateinout.state >= 16){
     stateinout.curr_arg++;
     return;
   }
   stateinout.state = newState;
   stateinout.highlighted = 0;
-  stateinout.output = NULL;
-  stateinout.refresh=1;
+  stateinout.refresh |= 1;
   switch(newState){
     case 0: 
       stateinout.len = 2;
@@ -257,6 +296,7 @@ void changeState(shellstate_t& stateinout){
 
 void shell_update(uint8_t scankey, shellstate_t& stateinout){
   stateinout.key_count++;
+  stateinout.refresh = 0;
   uint8_t arg = stateinout.curr_arg;
   switch (scankey){
     case 0x4b:
@@ -271,14 +311,16 @@ void shell_update(uint8_t scankey, shellstate_t& stateinout){
       changeState(stateinout);
       break;
     case 0x0e:
-      if(stateinout.state>2){
+      if(stateinout.state >= 16){
+        stateinout.refresh |= 2;
         if(stateinout.input_len[arg] > 0){
           stateinout.input[arg][--stateinout.input_len[arg]] = 0;
         }
       }
       break;
     default:
-      if(stateinout.state>2){
+      if(stateinout.state >= 16){
+        stateinout.refresh |= 2;
         char key = key_mapping(scankey);
         if(stateinout.input_len[arg] < BUF_LEN-1 && key != -1){
           stateinout.input[arg][stateinout.input_len[arg]++] = key;
@@ -287,6 +329,8 @@ void shell_update(uint8_t scankey, shellstate_t& stateinout){
       }
       break;
   }
+  if (stateinout.refresh)
+    stateinout.refresh |= 4;
   hoh_debug("Got: "<<unsigned(scankey));
 }
 
@@ -295,15 +339,31 @@ void shell_update(uint8_t scankey, shellstate_t& stateinout){
 // do computation
 //
 void shell_step(shellstate_t& stateinout){
+  if (stateinout.refresh & 4)
+    stateinout.refresh ^= 4;
+  else
+    stateinout.refresh = 0;
   if(stateinout.state < 3){
     return;
-  }else if (stateinout.state <= 7){
-    if(stateinout.curr_arg < 2){
+  } else if (stateinout.state < 16){
+    return;
+  } else{
+    if(stateinout.curr_arg < stateinout.max_args){
       return;
     }
     uint32_t args[MAX_ARGS];
-    parseArgs(stateinout.input, stateinout.curr_arg,args);
-    hoh_debug("args: "<<args[0]<<" "<<args[1]);
+    parse_args(stateinout.input, stateinout.curr_arg,args);
+    switch (stateinout.state){
+      case 16:
+        factorial(args[0], stateinout.output);
+        hoh_debug(stateinout.output);
+        break;
+      case 17:
+        fibonacci(args[0], stateinout.output);
+        hoh_debug(stateinout.output);
+        break;
+    }
+    shell_init(stateinout);
   }
 }
 
@@ -318,9 +378,11 @@ void shell_render(const shellstate_t& shell, renderstate_t& render){
     render.options[i] = shell.options[i];
   }
   render.highlighted = shell.highlighted;
-  render.output = shell.output;
   render.refresh = shell.refresh;
-  for(int i = 0; i < MAX_ARGS; i++){
+  for (int i = 0; i < BUF_LEN; i++)
+    render.output[i] = shell.output[i];
+  render.curr_arg = shell.curr_arg;
+  for(int i = 0; i <= shell.curr_arg; i++){
     render.input[i] = shell.input[i];
   }
 }
@@ -330,11 +392,14 @@ void shell_render(const shellstate_t& shell, renderstate_t& render){
 // compare a and b
 //
 bool render_eq(const renderstate_t& a, const renderstate_t& b){
-  bool ret = a.key_count == b.key_count && a.len == b.len && a.highlighted == b.highlighted && a.refresh == b.refresh && strcmp(a.output, b.output) == 0;
+  bool ret = a.key_count == b.key_count && a.len == b.len && a.highlighted == b.highlighted && a.refresh == b.refresh && a.curr_arg == b.curr_arg && strcmp(a.output, b.output) == 0;
   if (!ret)
     return ret;
   for (int i = 0; i < a.len; i++){
     ret = ret && strcmp(a.options[i], b.options[i]) == 0;
+  }
+  for (int i = 0; i < a.curr_arg; i++){
+    ret = ret && strcmp(a.input[i], b.input[i]) == 0;
   }
   return ret;
 }
@@ -350,17 +415,19 @@ static void drawnumberinhex(int x,int y, uint32_t number, int maxw, uint8_t bg, 
 // Given a render state, we need to write it into vgatext buffer
 //
 void render(const renderstate_t& state, int w, int h, addr_t vgatext_base){
-  if(state.refresh){
+  if (state.refresh & 1) {
     fillrect(0, h - 3, w, h, 0x0, 0x0, w, h, vgatext_base);
   }
-  fillrect(0, 0, w, h-3, 0x0, 0x0, w, h, vgatext_base);
-  for(int i=0;i<MAX_ARGS;i++){
+  if (state.refresh & 2) {
+    fillrect(0, 0, w, h-3, 0x0, 0x0, w, h, vgatext_base);
+  }
+  for(int i=0;i<=state.curr_arg;i++){
     drawtext(0, i, state.input[i], BUF_LEN, 0x0, 0x7, w, h, vgatext_base);
   }
   drawrect(0, h - 3, w, h, 0x7, 0x0, w, h, vgatext_base);
   drawnumberinhex(w - 10, h - 2, state.key_count, 8, 0, 0x7, w, h, vgatext_base);
   uint8_t loc = 2;
-  for (int i = 0; i < state.len; ++i){
+  for (int i = 0; i < state.len; i++){
     if (i == state.highlighted)
       drawtext(loc, h - 2, state.options[i], 10, 0x2, 0x6, w, h, vgatext_base);
     else
