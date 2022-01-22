@@ -53,6 +53,8 @@ void int_to_string(uint32_t val, char *buf){
 
 void factorial(uint32_t n, char *buf){
   uint32_t ret = n;
+  if (n == 0)
+    ret = 1;
   while (n > 1)
     ret *= --n;
   int_to_string(ret, buf);
@@ -103,7 +105,6 @@ void shell_init(shellstate_t& state){
 }
 
 void setMenu(shellstate_t& stateinout, uint8_t newState){
-  stateinout.highlighted = 0;
   stateinout.refresh |= 1;
   switch(newState){
     case 0: 
@@ -113,17 +114,17 @@ void setMenu(shellstate_t& stateinout, uint8_t newState){
       break;
     case 1:
       stateinout.len = 5;
-      stateinout.options[0] = "factorial";
-      stateinout.options[1] = "fibonacci";
-      stateinout.options[2] = "add";
-      stateinout.options[3] = "echo";
-      stateinout.options[4] = "back";
+      stateinout.options[0] = "back";
+      stateinout.options[1] = "factorial";
+      stateinout.options[2] = "fibonacci";
+      stateinout.options[3] = "add";
+      stateinout.options[4] = "echo";
       break;
     case 2:
       stateinout.len = 3;
-      stateinout.options[0] = "color";
-      stateinout.options[1] = "reset";
-      stateinout.options[2] = "back";
+      stateinout.options[0] = "back";
+      stateinout.options[1] = "color";
+      stateinout.options[2] = "reset";
       break;
   }
 }
@@ -297,41 +298,43 @@ char key_mapping(uint8_t scancode){
 
 
 void changeState(shellstate_t& stateinout){
-  uint8_t newState;
+  uint8_t newState = stateinout.state;
   if(stateinout.state == 0){
     if(stateinout.highlighted == 0){
       newState = 1;
     }else if(stateinout.highlighted == 1){
       newState = 2;
     }
+    stateinout.highlighted = 0;
   } else if(stateinout.state == 1){
     switch(stateinout.highlighted){
-    case 0: 
+    case 0:
+      newState = 0;
+      stateinout.highlighted = 0;
+      break;
+    case 1: 
       stateinout.state = FACTORIAL;
       stateinout.max_args = 1;
       stateinout.active_func = stateinout.highlighted;
       return;
-    case 1:
+    case 2:
       stateinout.state = FIBBONACCI;
       stateinout.max_args = 1;
       stateinout.active_func = stateinout.highlighted;
       return;
-    case 2:
+    case 3:
       stateinout.state = ADD;
       stateinout.max_args = 2;
       stateinout.active_func = stateinout.highlighted;
       return;
-    case 3:
+    case 4:
       stateinout.state = ECHO;
       stateinout.max_args = 1;
       stateinout.active_func = stateinout.highlighted;
       return;
-    case 4:
-      newState = 0;
-      break;
     }
   } else if(stateinout.state == 2){
-    if(stateinout.highlighted == 2){
+    if(stateinout.highlighted == 0){
       newState = 0;
     }
   } else if(stateinout.state >= 16){
