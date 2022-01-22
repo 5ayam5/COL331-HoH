@@ -1,7 +1,7 @@
 #pragma once
 #include "util/config.h"
 #include "util/debug.h"
-#define BUF_LEN 100
+#define BUF_LEN 80
 #define MAX_OPS 10
 #define MAX_ARGS 10
 #define FACTORIAL 16
@@ -12,8 +12,7 @@
 struct shellstate_t{
   uint32_t key_count;
   const char *options[MAX_OPS];
-  uint8_t len, highlighted, state, refresh, curr_arg, max_args, input_len[MAX_ARGS];
-  int active_func;
+  uint8_t len, highlighted, state, refresh, curr_arg, max_args, active_func, input_len[MAX_ARGS];
   char output[BUF_LEN];
   char input[MAX_ARGS][BUF_LEN];
 };
@@ -21,8 +20,7 @@ struct shellstate_t{
 struct renderstate_t{
   uint32_t key_count;
   const char *options[MAX_OPS];
-  uint8_t len, highlighted, refresh, curr_arg;
-  int active_func;
+  uint8_t len, highlighted, refresh, curr_arg, active_func;
   char output[BUF_LEN];
   const char *input[MAX_ARGS];
 };

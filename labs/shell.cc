@@ -21,7 +21,6 @@ uint32_t str_to_int(const char *str){
   uint32_t val = 0;
   for (uint8_t i = 0; i < len; i++)
     val = val * 10 + str[i] - '0';
-  // hoh_debug(val<<" "<<str);
   return val;
 }
 
@@ -87,6 +86,22 @@ void echo(char *a, char* buf){
 // initialize shellstate
 //
 
+void shell_init(shellstate_t& state){
+  state.active_func = -1;
+  state.key_count = 0;
+  state.options[0] = "functions";
+  state.options[1] = "settings";
+  state.len = 2;
+  state.highlighted = 0;
+  state.state = 0;
+  for(int i=0;i<MAX_ARGS;i++){
+    state.input[i][0] = 0;
+    state.input_len[i] = 0;
+  }
+  state.refresh = 7;
+  state.curr_arg = 0;
+}
+
 void setMenu(shellstate_t& stateinout, uint8_t newState){
   stateinout.highlighted = 0;
   stateinout.refresh |= 1;
@@ -111,23 +126,6 @@ void setMenu(shellstate_t& stateinout, uint8_t newState){
       stateinout.options[2] = "back";
       break;
   }
-}
-
-//functions settings
-void shell_init(shellstate_t& state){
-  state.active_func = -1;
-  state.key_count = 0;
-  state.options[0] = "functions";
-  state.options[1] = "settings";
-  state.len = 2;
-  state.highlighted = 0;
-  state.state = 0;
-  for(int i=0;i<MAX_ARGS;i++){
-    state.input[i][0] = 0;
-    state.input_len[i] = 0;
-  }
-  state.refresh = 7;
-  state.curr_arg = 0;
 }
 
 void shell_refresh(shellstate_t& state, uint8_t flag){
@@ -288,6 +286,9 @@ char key_mapping(uint8_t scancode){
     case 0x32:
       key = 'm';
       break;
+    case 0x39:
+      key = ' ';
+      break;
     default:
       key = -1;
   }
@@ -304,33 +305,30 @@ void changeState(shellstate_t& stateinout){
       newState = 2;
     }
   } else if(stateinout.state == 1){
-    
-    hoh_debug(stateinout.active_func);
-
     switch(stateinout.highlighted){
-      case 0: 
-        stateinout.state = FACTORIAL;
-        stateinout.max_args = 1;
-        stateinout.active_func = stateinout.highlighted;
-        return;
-      case 1:
-        stateinout.state = FIBBONACCI;
-        stateinout.max_args = 1;
-        stateinout.active_func = stateinout.highlighted;
-        return;
-      case 2:
-        stateinout.state = ADD;
-        stateinout.max_args = 2;
-        stateinout.active_func = stateinout.highlighted;
-        return;
-      case 3:
-        stateinout.state = ECHO;
-        stateinout.max_args = 1;
-        stateinout.active_func = stateinout.highlighted;
-        return;
-      case 4:
-        newState = 0;
-        break;  
+    case 0: 
+      stateinout.state = FACTORIAL;
+      stateinout.max_args = 1;
+      stateinout.active_func = stateinout.highlighted;
+      return;
+    case 1:
+      stateinout.state = FIBBONACCI;
+      stateinout.max_args = 1;
+      stateinout.active_func = stateinout.highlighted;
+      return;
+    case 2:
+      stateinout.state = ADD;
+      stateinout.max_args = 2;
+      stateinout.active_func = stateinout.highlighted;
+      return;
+    case 3:
+      stateinout.state = ECHO;
+      stateinout.max_args = 1;
+      stateinout.active_func = stateinout.highlighted;
+      return;
+    case 4:
+      newState = 0;
+      break;
     }
   } else if(stateinout.state == 2){
     if(stateinout.highlighted == 2){
@@ -349,41 +347,40 @@ void shell_update(uint8_t scankey, shellstate_t& stateinout){
   stateinout.refresh = 0;
   uint8_t arg = stateinout.curr_arg;
   switch (scankey){
-    case 0x4b:
-      if (stateinout.highlighted > 0 && stateinout.active_func == -1)
-        stateinout.highlighted--;
-      break;
-    case 0x4d:
-      if (stateinout.highlighted < stateinout.len - 1 && stateinout.active_func == -1)
-        stateinout.highlighted++;
-      break;
-    case 0x1c:
-      changeState(stateinout);
-      break;
-    case 0x0e:
-      if(stateinout.state >= 16){
-        stateinout.refresh |= 2;
-        if(stateinout.input_len[arg] > 0){
-          stateinout.input[arg][--stateinout.input_len[arg]] = 0;
-        }
+  case 0x4b:
+    if (stateinout.highlighted > 0 && stateinout.active_func == (uint8_t)-1)
+      stateinout.highlighted--;
+    break;
+  case 0x4d:
+    if (stateinout.highlighted < stateinout.len - 1 && stateinout.active_func == (uint8_t)-1)
+      stateinout.highlighted++;
+    break;
+  case 0x1c:
+    changeState(stateinout);
+    break;
+  case 0x0e:
+    if(stateinout.state >= 16){
+      stateinout.refresh |= 2;
+      if(stateinout.input_len[arg] > 0){
+        stateinout.input[arg][--stateinout.input_len[arg]] = 0;
       }
-      break;
-    case 0x01:
-      if(stateinout.state >= 16){
-        shell_refresh(stateinout, 1);
+    }
+    break;
+  case 0x01:
+    if(stateinout.state >= 16){
+      shell_refresh(stateinout, 1);
+    }
+    break;
+  default:
+    if(stateinout.state >= 16){
+      stateinout.refresh |= 2;
+      char key = key_mapping(scankey);
+      if(stateinout.input_len[arg] < BUF_LEN-1 && key != (char)-1){
+        stateinout.input[arg][stateinout.input_len[arg]++] = key;
+        stateinout.input[arg][stateinout.input_len[arg]] = 0;
       }
-      break;
-
-    default:
-      if(stateinout.state >= 16){
-        stateinout.refresh |= 2;
-        char key = key_mapping(scankey);
-        if(stateinout.input_len[arg] < BUF_LEN-1 && key != -1){
-          stateinout.input[arg][stateinout.input_len[arg]++] = key;
-          stateinout.input[arg][stateinout.input_len[arg]] = 0;
-        }
-      }
-      break;
+    }
+    break;
   }
   if (stateinout.refresh)
     stateinout.refresh |= 4;
@@ -408,26 +405,22 @@ void shell_step(shellstate_t& stateinout){
       return;
     }
     uint32_t args[MAX_ARGS];
-    parse_args(stateinout.input, stateinout.curr_arg,args);
     switch (stateinout.state){
-      case FACTORIAL:
-        factorial(args[0], stateinout.output);
-        hoh_debug(stateinout.output);
-        break;
-      case FIBBONACCI:
-        fibonacci(args[0], stateinout.output);
-        hoh_debug(stateinout.output);
-        break;
-      case ADD:
-        add(args[0], args[1], stateinout.output);
-        hoh_debug(stateinout.output);
-        break;
-      case ECHO:
-        hoh_debug(stateinout.input[0]);
-        echo(stateinout.input[0], stateinout.output);
-        hoh_debug(stateinout.output);
-        hoh_debug("echo");
-        break;
+    case FACTORIAL:
+      parse_args(stateinout.input, stateinout.max_args, args);
+      factorial(args[0], stateinout.output);
+      break;
+    case FIBBONACCI:
+      parse_args(stateinout.input, stateinout.max_args, args);
+      fibonacci(args[0], stateinout.output);
+      break;
+    case ADD:
+      parse_args(stateinout.input, stateinout.max_args, args);
+      add(args[0], args[1], stateinout.output);
+      break;
+    case ECHO:
+      echo(stateinout.input[0], stateinout.output);
+      break;
     }
     // shell_init(stateinout);
     shell_refresh(stateinout, 1);
@@ -460,8 +453,7 @@ void shell_render(const shellstate_t& shell, renderstate_t& render){
 // compare a and b
 //
 bool render_eq(const renderstate_t& a, const renderstate_t& b){
-  bool ret = a.key_count == b.key_count && a.len == b.len && a.highlighted == b.highlighted && a.refresh == b.refresh && a.curr_arg == b.curr_arg && strcmp(a.output, b.output) == 0;
-  ret = ret && (a.active_func == b.active_func);
+  bool ret = a.key_count == b.key_count && a.len == b.len && a.highlighted == b.highlighted && a.refresh == b.refresh && a.curr_arg == b.curr_arg && a.active_func == b.active_func && strcmp(a.output, b.output) == 0;
   if (!ret)
     return ret;
   for (int i = 0; i < a.len; i++){
@@ -494,19 +486,18 @@ void render(const renderstate_t& state, int w, int h, addr_t vgatext_base){
     drawtext(0, i, state.input[i], BUF_LEN, 0x0, 0x7, w, h, vgatext_base);
   }
   for(int x=0; x+1 < w; x++){
-    writecharxy(x,11, 0xcd, 0x7, 0x0, w,h,vgatext_base);
+    writecharxy(x, MAX_ARGS + 1, 0xc4, 0x0, 0x7, w, h, vgatext_base);
   }
-  drawtext(0, 12, state.output, BUF_LEN, 0x0, 0x7, w, h, vgatext_base);
+  drawtext(0, MAX_ARGS + 2, state.output, BUF_LEN, 0x0, 0x5, w, h, vgatext_base);
 
-
+  // menu rendering
   drawrect(0, h - 3, w, h, 0x7, 0x0, w, h, vgatext_base);
   drawnumberinhex(w - 10, h - 2, state.key_count, 8, 0, 0x7, w, h, vgatext_base);
   uint8_t loc = 2;
   for (int i = 0; i < state.len; i++){
     if(i == state.active_func){
-      drawtext(loc, h - 2, state.options[i], 10, 0x4, 0x7, w, h, vgatext_base);
-    }
-    else if (i == state.highlighted)
+      drawtext(loc, h - 2, state.options[i], 10, 0x4, 0x3, w, h, vgatext_base);
+    } else if (i == state.highlighted)
       drawtext(loc, h - 2, state.options[i], 10, 0x2, 0x6, w, h, vgatext_base);
     else
       drawtext(loc, h - 2, state.options[i], 10, 0, 0x7, w, h, vgatext_base);
