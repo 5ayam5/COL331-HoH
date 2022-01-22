@@ -7,6 +7,7 @@
 #define FACTORIAL 16
 #define FIBBONACCI 17
 #define ADD 32
+#define ECHO 18
 
 struct shellstate_t{
   uint32_t key_count;

@@ -74,6 +74,15 @@ void add(uint32_t a, uint32_t b, char* buf){
 }
 
 
+void echo(char *a, char* buf){
+  int i = 0;
+  while(*a){
+    buf[i] = *a;
+    *a ++; i++; 
+  }
+  buf[i] = '\0';
+}
+
 //
 // initialize shellstate
 //
@@ -88,11 +97,12 @@ void setMenu(shellstate_t& stateinout, uint8_t newState){
       stateinout.options[1] = "settings";
       break;
     case 1:
-      stateinout.len = 4;
+      stateinout.len = 5;
       stateinout.options[0] = "factorial";
       stateinout.options[1] = "fibonacci";
       stateinout.options[2] = "add";
-      stateinout.options[3] = "back";
+      stateinout.options[3] = "echo";
+      stateinout.options[4] = "back";
       break;
     case 2:
       stateinout.len = 3;
@@ -313,8 +323,12 @@ void changeState(shellstate_t& stateinout){
         stateinout.max_args = 2;
         stateinout.active_func = stateinout.highlighted;
         return;
-
       case 3:
+        stateinout.state = ECHO;
+        stateinout.max_args = 1;
+        stateinout.active_func = stateinout.highlighted;
+        return;
+      case 4:
         newState = 0;
         break;  
     }
@@ -407,6 +421,12 @@ void shell_step(shellstate_t& stateinout){
       case ADD:
         add(args[0], args[1], stateinout.output);
         hoh_debug(stateinout.output);
+        break;
+      case ECHO:
+        hoh_debug(stateinout.input[0]);
+        echo(stateinout.input[0], stateinout.output);
+        hoh_debug(stateinout.output);
+        hoh_debug("echo");
         break;
     }
     // shell_init(stateinout);
