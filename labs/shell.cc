@@ -69,13 +69,43 @@ void fibonacci(uint32_t n, char *buf){
   int_to_string(c, buf);
 }
 
+void add(uint32_t a, uint32_t b, char* buf){
+  int_to_string(a+b, buf);
+}
+
+
 //
 // initialize shellstate
 //
 
+void setMenu(shellstate_t& stateinout, uint8_t newState){
+  stateinout.highlighted = 0;
+  stateinout.refresh |= 1;
+  switch(newState){
+    case 0: 
+      stateinout.len = 2;
+      stateinout.options[0] = "functions";
+      stateinout.options[1] = "settings";
+      break;
+    case 1:
+      stateinout.len = 4;
+      stateinout.options[0] = "factorial";
+      stateinout.options[1] = "fibonacci";
+      stateinout.options[2] = "add";
+      stateinout.options[3] = "back";
+      break;
+    case 2:
+      stateinout.len = 3;
+      stateinout.options[0] = "color";
+      stateinout.options[1] = "reset";
+      stateinout.options[2] = "back";
+      break;
+  }
+}
 
 //functions settings
 void shell_init(shellstate_t& state){
+  state.active_func = -1;
   state.key_count = 0;
   state.options[0] = "functions";
   state.options[1] = "settings";
@@ -89,6 +119,21 @@ void shell_init(shellstate_t& state){
   state.refresh = 7;
   state.curr_arg = 0;
 }
+
+void shell_refresh(shellstate_t& state, uint8_t flag){
+  state.active_func = -1;
+  state.state = flag;
+  setMenu(state, flag);
+
+  for(int i=0;i<MAX_ARGS;i++){
+    state.input[i][0] = 0;
+    state.input_len[i] = 0;
+  }
+  state.refresh = 7;
+  state.curr_arg = 0;
+}
+
+
 
 //
 // handle keyboard event.
@@ -249,16 +294,27 @@ void changeState(shellstate_t& stateinout){
       newState = 2;
     }
   } else if(stateinout.state == 1){
+    
+    hoh_debug(stateinout.active_func);
+
     switch(stateinout.highlighted){
       case 0: 
-        stateinout.state = 16;
+        stateinout.state = FACTORIAL;
         stateinout.max_args = 1;
+        stateinout.active_func = stateinout.highlighted;
         return;
       case 1:
-        stateinout.state = 17;
+        stateinout.state = FIBBONACCI;
         stateinout.max_args = 1;
+        stateinout.active_func = stateinout.highlighted;
         return;
       case 2:
+        stateinout.state = ADD;
+        stateinout.max_args = 2;
+        stateinout.active_func = stateinout.highlighted;
+        return;
+
+      case 3:
         newState = 0;
         break;  
     }
@@ -271,27 +327,7 @@ void changeState(shellstate_t& stateinout){
     return;
   }
   stateinout.state = newState;
-  stateinout.highlighted = 0;
-  stateinout.refresh |= 1;
-  switch(newState){
-    case 0: 
-      stateinout.len = 2;
-      stateinout.options[0] = "functions";
-      stateinout.options[1] = "settings";
-      break;
-    case 1:
-      stateinout.len = 3;
-      stateinout.options[0] = "factorial";
-      stateinout.options[1] = "fibonacci";
-      stateinout.options[2] = "back";
-      break;
-    case 2:
-      stateinout.len = 3;
-      stateinout.options[0] = "color";
-      stateinout.options[1] = "reset";
-      stateinout.options[2] = "back";
-      break;
-  }
+  setMenu(stateinout, newState);
 }
 
 void shell_update(uint8_t scankey, shellstate_t& stateinout){
@@ -300,11 +336,11 @@ void shell_update(uint8_t scankey, shellstate_t& stateinout){
   uint8_t arg = stateinout.curr_arg;
   switch (scankey){
     case 0x4b:
-      if (stateinout.highlighted > 0)
+      if (stateinout.highlighted > 0 && stateinout.active_func == -1)
         stateinout.highlighted--;
       break;
     case 0x4d:
-      if (stateinout.highlighted < stateinout.len - 1)
+      if (stateinout.highlighted < stateinout.len - 1 && stateinout.active_func == -1)
         stateinout.highlighted++;
       break;
     case 0x1c:
@@ -318,6 +354,12 @@ void shell_update(uint8_t scankey, shellstate_t& stateinout){
         }
       }
       break;
+    case 0x01:
+      if(stateinout.state >= 16){
+        shell_refresh(stateinout, 1);
+      }
+      break;
+
     default:
       if(stateinout.state >= 16){
         stateinout.refresh |= 2;
@@ -354,16 +396,21 @@ void shell_step(shellstate_t& stateinout){
     uint32_t args[MAX_ARGS];
     parse_args(stateinout.input, stateinout.curr_arg,args);
     switch (stateinout.state){
-      case 16:
+      case FACTORIAL:
         factorial(args[0], stateinout.output);
         hoh_debug(stateinout.output);
         break;
-      case 17:
+      case FIBBONACCI:
         fibonacci(args[0], stateinout.output);
         hoh_debug(stateinout.output);
         break;
+      case ADD:
+        add(args[0], args[1], stateinout.output);
+        hoh_debug(stateinout.output);
+        break;
     }
-    shell_init(stateinout);
+    // shell_init(stateinout);
+    shell_refresh(stateinout, 1);
   }
 }
 
@@ -372,6 +419,7 @@ void shell_step(shellstate_t& stateinout){
 // shellstate --> renderstate
 //
 void shell_render(const shellstate_t& shell, renderstate_t& render){
+  render.active_func = shell.active_func;
   render.key_count = shell.key_count;
   render.len = shell.len;
   for (int i = 0; i < shell.len; i++){
@@ -393,6 +441,7 @@ void shell_render(const shellstate_t& shell, renderstate_t& render){
 //
 bool render_eq(const renderstate_t& a, const renderstate_t& b){
   bool ret = a.key_count == b.key_count && a.len == b.len && a.highlighted == b.highlighted && a.refresh == b.refresh && a.curr_arg == b.curr_arg && strcmp(a.output, b.output) == 0;
+  ret = ret && (a.active_func == b.active_func);
   if (!ret)
     return ret;
   for (int i = 0; i < a.len; i++){
@@ -424,11 +473,20 @@ void render(const renderstate_t& state, int w, int h, addr_t vgatext_base){
   for(int i=0;i<=state.curr_arg;i++){
     drawtext(0, i, state.input[i], BUF_LEN, 0x0, 0x7, w, h, vgatext_base);
   }
+  for(int x=0; x+1 < w; x++){
+    writecharxy(x,11, 0xcd, 0x7, 0x0, w,h,vgatext_base);
+  }
+  drawtext(0, 12, state.output, BUF_LEN, 0x0, 0x7, w, h, vgatext_base);
+
+
   drawrect(0, h - 3, w, h, 0x7, 0x0, w, h, vgatext_base);
   drawnumberinhex(w - 10, h - 2, state.key_count, 8, 0, 0x7, w, h, vgatext_base);
   uint8_t loc = 2;
   for (int i = 0; i < state.len; i++){
-    if (i == state.highlighted)
+    if(i == state.active_func){
+      drawtext(loc, h - 2, state.options[i], 10, 0x4, 0x7, w, h, vgatext_base);
+    }
+    else if (i == state.highlighted)
       drawtext(loc, h - 2, state.options[i], 10, 0x2, 0x6, w, h, vgatext_base);
     else
       drawtext(loc, h - 2, state.options[i], 10, 0, 0x7, w, h, vgatext_base);
