@@ -61,7 +61,7 @@ void factorial(uint32_t n, char *buf){
 }
 
 void fibonacci(uint32_t n, char *buf){
-  uint32_t a = 0, b = 1, c = 0;
+  uint32_t a = 1, b =0, c = 0;
   while (n--) {
     c = a + b;
     a = b;
