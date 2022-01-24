@@ -455,30 +455,20 @@ uint8_t contrast_color(uint8_t color){
   return WHITE - color;
 }
 
-// to switch the colors, this also takes care
+// to switch the colors, this also takes care no 2 things are assigned the same color
 void change_color(shellstate_t& stateinout, uint8_t color){
-  switch (stateinout.state){
-    case BACKGROUND_COLOR:
-      stateinout.background_color = color;
-      if (stateinout.highlight_color ==  stateinout.background_color){
-        stateinout.highlight_color = contrast_color(stateinout.background_color);
-      }
-      if (stateinout.selected_color ==  stateinout.background_color){
-        stateinout.selected_color = contrast_color(stateinout.background_color);
-      }
-      break;
-    case TEXT_COLOR:
-      stateinout.text_color = color;
-      break;
-    case OUTPUT_COLOR:
-      stateinout.output_color = color;
-      break;
-    case HIGHLIGHT_COLOR:
-      stateinout.highlight_color = color;
-      break;
-    case SELECTED_COLOR:
-      stateinout.selected_color = color;
-      break;
+  uint8_t* colors[5];
+  colors[0] = &(stateinout.background_color);
+  colors[1] = &(stateinout.text_color);
+  colors[2] = &(stateinout.output_color);
+  colors[3] = &(stateinout.highlight_color);
+  colors[4] = &(stateinout.selected_color);
+  int idx = stateinout.state - BACKGROUND_COLOR;
+  *colors[idx] = color;
+  // this loop will make sure that all the colors are different, so it never happens that we are not able to read somethihng
+  for (int i=0;i<5;i++){
+    if (i== idx) continue;
+    if (*colors[i] == *colors[idx]) *colors[i] = contrast_color(*colors[idx]);
   }
 }
 
