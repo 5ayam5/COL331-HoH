@@ -138,13 +138,12 @@ void setMenu(shellstate_t &stateinout, uint8_t newState) {
     stateinout.options[2] = "reset";
     break;
   case COLOR_SETTINGS_MENU:
-    stateinout.len = 6;
+    stateinout.len = 5;
     stateinout.options[0] = "back";
-    stateinout.options[1] = "background";
-    stateinout.options[2] = "text";
-    stateinout.options[3] = "outputs";
-    stateinout.options[4] = "highlight";
-    stateinout.options[5] = "selected";
+    stateinout.options[1] = "text";
+    stateinout.options[2] = "outputs";
+    stateinout.options[3] = "highlight";
+    stateinout.options[4] = "selected";
     break;
   }
 }
@@ -379,18 +378,15 @@ void changeState(shellstate_t &stateinout) {
     } else {
       switch (stateinout.highlighted) {
       case 1:
-        stateinout.state = BACKGROUND_COLOR;
-        break;
-      case 2:
         stateinout.state = TEXT_COLOR;
         break;
-      case 3:
+      case 2:
         stateinout.state = OUTPUT_COLOR;
         break;
-      case 4:
+      case 3:
         stateinout.state = HIGHLIGHT_COLOR;
         break;
-      case 5:
+      case 4:
         stateinout.state = SELECTED_COLOR;
         break;
       }
@@ -442,7 +438,7 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
     }
     break;
   case ESCAPE_KEY:
-    if (BACKGROUND_COLOR <= stateinout.state &&
+    if (TEXT_COLOR <= stateinout.state &&
         stateinout.state <= SELECTED_COLOR) {
       shell_refresh(stateinout, COLOR_SETTINGS_MENU);
     } else if (FACTORIAL <= stateinout.state) {
@@ -475,17 +471,16 @@ void change_color(shellstate_t &stateinout, uint8_t color) {
          stateinout.output);
     return;
   }
-  uint8_t *colors[5];
-  colors[0] = &(stateinout.background_color);
-  colors[1] = &(stateinout.text_color);
-  colors[2] = &(stateinout.output_color);
-  colors[3] = &(stateinout.highlight_color);
-  colors[4] = &(stateinout.selected_color);
-  int idx = stateinout.state - BACKGROUND_COLOR;
+  uint8_t *colors[4];
+  colors[0] = &(stateinout.text_color);
+  colors[1] = &(stateinout.output_color);
+  colors[2] = &(stateinout.highlight_color);
+  colors[3] = &(stateinout.selected_color);
+  int idx = stateinout.state - TEXT_COLOR;
   *colors[idx] = color;
   // this loop will make sure that all the colors are different, so it never
   // happens that we are not able to read somethihng
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 4; i++) {
     if (i == idx)
       continue;
     if (*colors[i] == *colors[idx])
@@ -510,7 +505,7 @@ void shell_step(shellstate_t &stateinout) {
       return;
     }
     uint32_t args[MAX_ARGS];
-    if (BACKGROUND_COLOR <= stateinout.state &&
+    if (TEXT_COLOR <= stateinout.state &&
         stateinout.state <= SELECTED_COLOR) {
       parse_args(stateinout.input, stateinout.max_args, args);
       change_color(stateinout, args[0]);
