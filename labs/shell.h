@@ -14,11 +14,12 @@
 #define COLOR_SETTINGS_MENU 3
 #define TEXT_COLOR 16                 // from 16-31 we have states where we are taking 1 argument from user
 #define OUTPUT_COLOR 17
-#define HIGHLIGHT_COLOR 18
-#define SELECTED_COLOR 19
-#define FACTORIAL 20
-#define FIBBONACCI 21
-#define ECHO 22
+#define BACKGROUND_COLOR 18
+#define HIGHLIGHT_COLOR 19
+#define SELECTED_COLOR 20
+#define FACTORIAL 21
+#define FIBBONACCI 22
+#define ECHO 23
 #define ADD 32 // from 32 we keep the states where we are taking 2 arguments
 
 // key encodings

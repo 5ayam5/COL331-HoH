@@ -138,12 +138,13 @@ void setMenu(shellstate_t &stateinout, uint8_t newState) {
     stateinout.options[2] = "reset";
     break;
   case COLOR_SETTINGS_MENU:
-    stateinout.len = 5;
+    stateinout.len = 6;
     stateinout.options[0] = "back";
     stateinout.options[1] = "text";
     stateinout.options[2] = "outputs";
-    stateinout.options[3] = "highlight";
-    stateinout.options[4] = "selected";
+    stateinout.options[3] = "background";
+    stateinout.options[4] = "highlight";
+    stateinout.options[5] = "selected";
     break;
   }
 }
@@ -375,6 +376,7 @@ void changeState(shellstate_t &stateinout) {
     if (stateinout.highlighted == 0) {
       stateinout.highlighted = 0;
       newState = SETTINGS_MENU;
+      stateinout.output[0]=0;
     } else {
       switch (stateinout.highlighted) {
       case 1:
@@ -384,16 +386,19 @@ void changeState(shellstate_t &stateinout) {
         stateinout.state = OUTPUT_COLOR;
         break;
       case 3:
-        stateinout.state = HIGHLIGHT_COLOR;
+        stateinout.state = BACKGROUND_COLOR;
         break;
       case 4:
+        stateinout.state = HIGHLIGHT_COLOR;
+        break;
+      case 5:
         stateinout.state = SELECTED_COLOR;
         break;
       }
       stateinout.max_args = 1;
       stateinout.active_func = stateinout.highlighted;
-      const char *str = "[1: Blue, 2: Green, 3: Cyan, 4: Red, 5: "
-                        "Magenta, 6: Orange, 7: White]";
+      const char *str = "0: Black, 1: Blue, 2: Green, 3: Cyan, 4: Red, 5: "
+                        "Magenta, 6: Orange, 7: White";
       echo(str, stateinout.output);
       return;
     }
@@ -465,8 +470,8 @@ uint8_t contrast_color(uint8_t color) { return WHITE - color; }
 // to switch the colors, this also takes care no 2 things are assigned the same
 // color
 void change_color(shellstate_t &stateinout, uint8_t color) {
-  if (color == 0 || color > 7) {
-    echo("Invalid index entered, please choose an index from 1 to 7",
+  if (color > 7) {
+    echo("Invalid index entered, please choose an index from 0 to 7",
          stateinout.output);
     return;
   }
@@ -477,11 +482,29 @@ void change_color(shellstate_t &stateinout, uint8_t color) {
   case OUTPUT_COLOR:
     stateinout.output_color = color;
     break;
+  case BACKGROUND_COLOR:
+    stateinout.background_color = color;
+    if (stateinout.background_color == stateinout.text_color) {
+      stateinout.text_color = contrast_color(stateinout.background_color);
+    }
+    if (stateinout.background_color == stateinout.output_color) {
+      stateinout.output_color = contrast_color(stateinout.background_color);
+    }
+    if (stateinout.background_color == stateinout.highlight_color) {
+      stateinout.highlight_color = contrast_color(stateinout.background_color);
+    }
+    if (stateinout.background_color == stateinout.selected_color) {
+      stateinout.selected_color = contrast_color(stateinout.background_color);
+    }
+    return;
   case HIGHLIGHT_COLOR:
     stateinout.highlight_color = color;
     break;
   case SELECTED_COLOR:
     stateinout.selected_color = color;
+  }
+  if (stateinout.background_color == color) {
+    stateinout.background_color = contrast_color(color);
   }
 }
 
@@ -601,7 +624,7 @@ void render(const renderstate_t &state, int w, int h, addr_t vgatext_base) {
              state.text_color, w, h, vgatext_base);
   }
   for (int x = 0; x + 1 <= w; x++) {
-    writecharxy(x, MAX_ARGS + 1, 0xc4, BLACK, WHITE, w, h, vgatext_base);
+    writecharxy(x, MAX_ARGS + 1, 0xc4, state.background_color, contrast_color(state.background_color), w, h, vgatext_base);
   }
   drawtext(0, MAX_ARGS + 2, state.output, BUF_LEN, state.background_color,
            state.output_color, w, h, vgatext_base);
