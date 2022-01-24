@@ -8,22 +8,23 @@
 #define MOD 1000000007
 
 // shell states encoding
-#define START_MENU 0                // from 0-15 we have states where are only taking no input
+#define START_MENU 0 // from 0-15 we have states where are only taking no input
 #define FUNCTIONS_MENU 1
 #define SETTINGS_MENU 2
 #define COLOR_SETTINGS_MENU 3
-#define BACKGROUND_COLOR 16         // from 16-31 we have states where we are taking 1 argument from user
+#define BACKGROUND_COLOR                                                       \
+  16 // from 16-31 we have states where we are taking 1 argument from user
 #define TEXT_COLOR 17
 #define OUTPUT_COLOR 18
-#define HIGHLIGHT_COLOR 19 
+#define HIGHLIGHT_COLOR 19
 #define SELECTED_COLOR 20
-#define FACTORIAL 21       
+#define FACTORIAL 21
 #define FIBBONACCI 22
 #define ECHO 23
-#define ADD 32                      // from 32 we keep the states where we are taking 2 arguments
+#define ADD 32 // from 32 we keep the states where we are taking 2 arguments
 
 // key encodings
-#define RIGHT_KEY 0x4d 
+#define RIGHT_KEY 0x4d
 #define LEFT_KEY 0x4b
 #define ENTER_KEY 0x1c
 #define BACKSPACE_KEY 0x0e
@@ -39,38 +40,31 @@
 #define ORANGE 0x6
 #define WHITE 0x7
 
-struct shellstate_t{
+struct shellstate_t {
   uint32_t key_count;
   const char *options[MAX_OPS];
-  uint8_t len, highlighted, state, refresh, curr_arg, max_args, active_func, input_len[MAX_ARGS];
+  uint8_t len, highlighted, state, refresh, curr_arg, max_args, active_func,
+      input_len[MAX_ARGS];
   char output[BUF_LEN];
   char input[MAX_ARGS][BUF_LEN];
-  uint8_t background_color, text_color, output_color, highlight_color, selected_color;
-
-  // initialize renderstate
-  void colors_init(){
-    background_color = BLACK;
-    text_color = WHITE;
-    output_color = MAGENTA;
-    highlight_color = GREEN;
-    selected_color = RED;
-  }
+  uint8_t background_color, text_color, output_color, highlight_color,
+      selected_color;
 };
 
-struct renderstate_t{
+struct renderstate_t {
   uint32_t key_count;
   const char *options[MAX_OPS];
   uint8_t len, highlighted, refresh, curr_arg, active_func;
   char output[BUF_LEN];
   const char *input[MAX_ARGS];
-  uint8_t background_color, text_color, output_color, highlight_color, selected_color;
+  uint8_t background_color, text_color, output_color, highlight_color,
+      selected_color;
 };
 
-void shell_init(shellstate_t& state);
-void shell_update(uint8_t scankey, shellstate_t& stateinout);
-void shell_step(shellstate_t& stateinout);
-void shell_render(const shellstate_t& shell, renderstate_t& render);
+void shell_init(shellstate_t &state);
+void shell_update(uint8_t scankey, shellstate_t &stateinout);
+void shell_step(shellstate_t &stateinout);
+void shell_render(const shellstate_t &shell, renderstate_t &render);
 
-bool render_eq(const renderstate_t& a, const renderstate_t& b);
-void render(const renderstate_t& state, int w, int h, addr_t display_base);
-
+bool render_eq(const renderstate_t &a, const renderstate_t &b);
+void render(const renderstate_t &state, int w, int h, addr_t display_base);
