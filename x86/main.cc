@@ -1,174 +1,183 @@
-#include "labs/vgatext.h"
-#include "util/debug.h"
-#include "labs/keyboard.h"
-#include "labs/shell.h"
-#include "labs/coroutine.h"
-#include "labs/fiber.h"
-#include "labs/fiber_scheduler.h"
+//
+// main.cc
+//
 
-struct core_t{
-  addr_t        vgatext_base;   //=addr_t(0xb8000);
-  int           vgatext_width;  //=80;
-  int           vgatext_height; //=25;
-
-  shellstate_t  shell_state;
-
-  //for one coroutine
-  coroutine_t   f_coro;
-  f_t           f_locals;
-
-  //for one fiber
-  enum { ARRAY_SIZE=4096};
-  addr_t        main_stack;
-  addr_t        f_stack;
-  size_t        f_arraysize;
-  uint32_t      f_debug1;
-  uint8_t       f_array[ARRAY_SIZE] ALIGN(64);
-  uint32_t      f_debug2;
-
-  //for fiber_scheduler
-  enum { STACKPTRS_SIZE=10};
-  size_t        stackptrs_size;
-  addr_t        stackptrs[STACKPTRS_SIZE];
-  size_t        arrays_size;
-  uint8_t       arrays[STACKPTRS_SIZE*ARRAY_SIZE] ALIGN(64);
-
-  renderstate_t render_state; //separate renderstate from shellstate
-
-  lpc_kbd_t     lpc_kbd;
-};
-
-static core_t   s_core;
-
-extern "C" void core_boot();
-extern "C" void core_init(core_t& core);
-extern "C" void core_reset(core_t& core);
-extern "C" void core_loop(core_t* p_core);
-static     void core_loop_step(core_t& core);
+#include "x86/main.h"
+#include "x86/except.h"     //exceptions and asm interface
 
 
 //
-// main
+// initialize config
 //
-extern "C" void core_boot(){
-  core_init(s_core);
-  core_reset(s_core);
+static void config_init(int rank, config_t& config){
+  dev_ia32_t ia32;
+  hoh_debug("is_bsp:" << ia32.is_bsp());
+  hoh_debug("apic_base:" << ia32.apic_base());
 
-  { // Hello, world!
-    const char* p="Hello, world!";
-    for(int loc=0;*p;loc++,p++){
-      vgatext::writechar(loc,*p,0,7,s_core.vgatext_base);
-    }
-  }
-
-  hoh_debug("Hello, serial!");
-
-  core_loop(&s_core);
+  // TODO: initialize config from acpi tables etc.
+  // config.lapic_base = ia32.apic_base();
 }
 
 
 
-
 //
-// initialize core
+// hal reset
 //
-extern "C" void core_init(core_t& core){
-  core.vgatext_base   = (addr_t)0xb8000;
-  core.vgatext_width  = 80;
-  core.vgatext_height = 25;
+static void hal_reset(int rank,hal_t& hal){
+  asm volatile ("cli" ::: "memory");
 
-  core.main_stack     = addr_t(0xfacebaad); //to tell you that their value is random
-  core.f_stack        = addr_t(0xfacebaad);
-  core.f_arraysize    = sizeof(core.f_array);
-  core.f_debug1       = 0xface600d; // for debug
-  core.f_debug2       = 0xface600d;
-  core.stackptrs_size = core_t::STACKPTRS_SIZE;
-  core.arrays_size    = sizeof(core.arrays);
+  idt_reset(hal.idt);
+  hal.pde32->map(0, (char*)~0x3fffffUL, 0);
+  hal.gdt.reset();
 
-  hoh_assert(core.arrays_size==core_t::STACKPTRS_SIZE*core_t::ARRAY_SIZE,"Bug: core.arrays_size="<<core.arrays_size);
+  if(rank==0){
+    hal.pic.reset(pic_master_base);
+    hal.pic.maskall();
+    hal.ioapic.reset();
+  }
 
-  lpc_kbd_initialize(&core.lpc_kbd,0x60);
+  hal.lapic.reset();
+  hal.idt.reset();
 
-  shell_init(core.shell_state);
+  if(rank==0){
+    hal.oldtimer.set_hz(0);
+  }
 
-  shell_render(core.shell_state, core.render_state);
+  hal.pde32->reset();
+  hal.ia32.enable_paging();
+
+  asm volatile ("sti" ::: "memory");
 }
 
 
 //
 // reset core to a known state
 //
-extern "C" void core_reset(core_t& core){
+// called from boot.S
+//
+extern "C" void core_reset(int rank, core_t& core){
   //serial::reset();
-  //lpc_kbd::reset();
+  hoh_debug("core_reset begin");
+  hal_reset(core.rank,core.hal);
+  apps_reset(core.rank,core.apps);
 }
 
-
 //
-// main loop
+// loop
 //
-extern "C" void core_loop(core_t* p_core){
+// called from boot.S
+//
+extern "C" void core_loop(int rank, core_t* p_core){
   core_t& core=*p_core;
-  hoh_debug("core_loop: esp=");
-  render(core.render_state, core.vgatext_width, core.vgatext_height, core.vgatext_base);
-  for(;;){
-    core_loop_step(core);
+  hoh_debug("core_loop begin");
+
+  apps_loop(core.rank, &core.main_stack, &core.preempt, &core.apps, &core.hal.lapic);
+}
+
+
+//
+// initialize BSP/master core
+//
+// called from boot.S
+//
+extern char g_end[];
+extern "C" void core_master_init(uint32_t magic, multiboot_info_t* pinfo, addr_t& mymem, bitpool_t& pool_tmp){
+  hoh_assert(magic == MULTIBOOT_BOOTLOADER_MAGIC,"magic="<<magic);
+  hoh_assert(pinfo,"XXX");
+  multiboot_info_t& info = *pinfo;
+
+  //
+  //print multiboot info
+  //
+  hoh_debug_if(test_bit(info.flags,0), "mem_lower = "<<info.mem_lower<<", "<<"mem_upper = "<<info.mem_upper);
+  hoh_debug_if(test_bit(info.flags,2), "cmdline   = "<<info.cmdline);
+  if(test_bit(info.flags,3)){
+    for(size_t i=0;i<info.mods_count;i++){
+      hoh_debug("mod_start="<<info.mods_addr[i].mod_start<<", mod_end="<<info.mods_addr[i].mod_end<<", mod_cmdline="<<info.mods_addr[i].cmdline<<",FB="<<*(const char*)info.mods_addr[i].mod_start);
+    }
   }
+
+  //
+  // Initialize Pool from Memory map
+  //
+  enum { PAGE_SIZE=4<<20 };
+  construct(&pool_tmp,uint32_t(PAGE_SIZE),addr_t(0));
+
+  if(test_bit(info.flags, 6)){
+    multiboot_memory_map_t* from = (multiboot_memory_map_t*)info.mmap_addr;
+    multiboot_memory_map_t* to   = (multiboot_memory_map_t*)(info.mmap_addr+info.mmap_length);
+
+    for(multiboot_memory_map_t* p=from; p!=to; ++p){
+      multiboot_memory_map_t& r = *p;
+      hoh_debug(" size = "<<r.size << ", base_addr = "<< r.addr << ", length = "<<r.len << ", type = "<<  r.type);
+      if(r.type != 1){
+        continue;
+      }
+      addr_t from = addr_t(r.addr);
+      addr_t to   = from + r.len;
+
+      //consider only memory after g_end as free
+      addr_t end  = addr_t(&g_end[0]);
+      if(to < end){
+        continue;
+      }
+      if(from < end && end <= to){
+        from = end;
+      }
+
+      //align them to page boundary
+      from = nextalign(from, PAGE_SIZE);
+      to   = prevalign(to,   PAGE_SIZE);
+      hoh_debug("Adding from= "<< from << " to= "<<to);
+
+      //add to pool
+      for(addr_t p=from; p<to; p+=pool_tmp.datasize()){
+        pool_tmp.add_mem(p,p+pool_tmp.datasize());
+      }
+    }
+  }
+
+  hoh_debug("Pool Size: "<<pool_tmp.remaining()<<" Pool="<<uint32_t(&pool_tmp));
+  hoh_assert(pool_tmp.remaining() > 10, "Not enough memory");
+  mymem=alloc(pool_tmp);
+
+}
+
+
+//
+// initialize memory
+//
+// called from boot.S
+//
+extern "C" void core_mem_init(int rank, addr_t mastermsg, addr_t mymsg, bitpool_t& pool_tmp, bitpool_t& pool_tmp2, addr_t& ret_stack, addr_t& ret_core){
+  hoh_debug("core "<<rank<<" initializing mem: "<<pool_tmp.remaining()<<" Pool="<<uint32_t(&pool_tmp));
+  hoh_assert(canalloc(pool_tmp),"XXX");
+
+  auto p4k = alloc(pool_tmp);
+  enum { PAGE_SIZE4K=4<<10 };
+  construct(&pool_tmp2,uint32_t(PAGE_SIZE4K),p4k);
+  for(addr_t p = p4k; p < p4k+pool_tmp.datasize(); p += pool_tmp2.datasize()){
+    pool_tmp2.add_mem(p, p+pool_tmp2.datasize());
+  }
+
+  //stack
+  hoh_assert(canalloc(pool_tmp2),"XXX");
+  auto stack = alloc(pool_tmp2);
+  auto stacksize=pool_tmp2.datasize();
+
+  //core
+  hoh_debug("size of core="<<sizeof(core_t));
+  hoh_assert(sizeof(core_t)<pool_tmp.datasize(),"XXX");
+  hoh_assert(canalloc(pool_tmp),"XXX");
+
+  config_t config;
+  config_init(rank, config);
+  auto pcore = allocT<core_t>(pool_tmp, rank,mastermsg, mymsg, pool_tmp,pool_tmp2,stack,stacksize,config);
+
+  ret_core   = addr_t(pcore);
+  ret_stack  = pcore->main_stackbegin+pcore->main_stacksize-8;
+
 }
 
 
 
-//
-// step
-//
-static void core_loop_step(core_t& core){
-  uint8_t       input;
-  renderstate_t rendertmp;
-
-
-  if(!lpc_kbd::has_key(core.lpc_kbd)){
-    goto nokey;
-  }
-
-  input=lpc_kbd::get_key(core.lpc_kbd);
-
-  if(input & 0x80){
-    goto nokey;
-  }
-
-  // on key: pass the key to shell
-  shell_update(input, core.shell_state);
-
-nokey:
-  // execute shell for one time slot to do the computation, if required.
-  shell_step(core.shell_state);
-
-  // execute shell for one time slot to do the some computation based on coroutine, if required.
-  shell_step_coroutine(core.shell_state, core.f_coro, core.f_locals);
-
-  // execute shell for one time slot to do the some computation based on fiber, if required.
-  shell_step_fiber(core.shell_state, core.main_stack, core.f_stack, core.f_array, core.f_arraysize);
-
-  // execute shell for one time slot to do the additional long computations based on fiber, if required.
-  shell_step_fiber_scheduler(core.shell_state, core.stackptrs, core.stackptrs_size, core.arrays, core.arrays_size);
-
-  // shellstate -> renderstate: compute render state from shell state
-  shell_render(core.shell_state, rendertmp);
-
-  //
-  // optimization: render() is pure/referentially transparent.
-  // ie. r1 == r2 ==> render(r1) == render(r2).
-  // ie. For the same render state, render() will always generate the same UI.
-  // So, If the render state is same as last render state, let's optimize it away.
-  //
-  if(render_eq(core.render_state, rendertmp)){
-    goto done;
-  }
-
-  // renderstate -> vgatext: given renderstate, render to vgatext buffer.
-  core.render_state=rendertmp;
-  render(core.render_state, core.vgatext_width, core.vgatext_height, core.vgatext_base);
-
-done:
-  return;
-}

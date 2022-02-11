@@ -8,19 +8,19 @@
 //
 // Switch stacks.
 //
-// Algo: 
-//   1. Save _c's context to stack, 
+// Algo:
+//   1. Save _c's context to stack,
 //   2. push ip of _c's restore handler
 //   3. switch stacks
 //   4. execute ip of _n's restore handler to restore _n's context from stack.
 //
 //
-// stack layout: 
-//  teip[-1:-32]: continuation to restore, 
+// stack layout:
+//  teip[-1:-32]: continuation to restore,
 //  Stack layout expected by teip:
-//     ebp[ -33: -64], 
-//     ebx[ -65: -96], 
-//     eax[ -97:-128], 
+//     ebp[ -33: -64],
+//     ebx[ -65: -96],
+//     eax[ -97:-128],
 //     Stack layout expected by eip+4:
 //        Preserved.
 
@@ -49,18 +49,18 @@
 //
 // Initializes stack.
 //
-// Algo: 
-//   1. Push Ip of reset handler 
+// Algo:
+//   1. Push Ip of reset handler
 //         (which will reset ebp and jmp to actual eip etc)
 //
-// stack layout: 
-//  teip[-1:-32]: continuation to restore(1f), 
+// stack layout:
+//  teip[-1:-32]: continuation to restore(1f),
 //  Stack layout expected by teip:
 //     args passed in registers when calling eip (NONE),
-//     eip[-33:-64], 
+//     eip[-33:-64],
 //     args passed in stack when calling eip (NONE),
 //
-// initial values: teip=t_start; eip=f_start; 
+// initial values: teip=t_start; eip=f_start;
 //
 
 #define stack_inithelper(_teip)  do{                                 \
@@ -82,7 +82,7 @@
 //
 // TODO  Take a poll on number of students using ancient g++ (<4.8)
 // FIXME Revert to: use type of f_start and variadic template, if g++>4.8
-// 
+//
 //
 
 template<typename T>
