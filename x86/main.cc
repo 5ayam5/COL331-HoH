@@ -3,6 +3,7 @@
 #include "labs/keyboard.h"
 #include "labs/shell.h"
 #include "labs/coroutine.h"
+#include "labs/fiber.h"
 
 struct core_t{
   addr_t        vgatext_base;   //=addr_t(0xb8000);
@@ -14,6 +15,15 @@ struct core_t{
   //for one coroutine
   coroutine_t   f_coro;
   f_t           f_locals;
+
+  //for one fiber
+  enum { ARRAY_SIZE=4096};
+  addr_t        main_stack;
+  addr_t        f_stack;
+  size_t        f_arraysize;
+  uint32_t      f_debug1;
+  uint8_t       f_array[ARRAY_SIZE] ALIGN(64);
+  uint32_t      f_debug2;
 
   renderstate_t render_state; //separate renderstate from shellstate
 
@@ -58,6 +68,12 @@ extern "C" void core_init(core_t& core){
   core.vgatext_base   = (addr_t)0xb8000;
   core.vgatext_width  = 80;
   core.vgatext_height = 25;
+
+  core.main_stack     = addr_t(0xfacebaad); //to tell you that their value is random
+  core.f_stack        = addr_t(0xfacebaad);
+  core.f_arraysize    = sizeof(core.f_array);
+  core.f_debug1       = 0xface600d; // for debug
+  core.f_debug2       = 0xface600d;
 
   lpc_kbd_initialize(&core.lpc_kbd,0x60);
 
@@ -117,6 +133,9 @@ nokey:
 
   // execute shell for one time slot to do the some computation based on coroutine, if required.
   shell_step_coroutine(core.shell_state, core.f_coro, core.f_locals);
+
+  // execute shell for one time slot to do the some computation based on fiber, if required.
+  shell_step_fiber(core.shell_state, core.main_stack, core.f_stack, core.f_array, core.f_arraysize);
 
   // shellstate -> renderstate: compute render state from shell state
   shell_render(core.shell_state, rendertmp);

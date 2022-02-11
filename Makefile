@@ -16,6 +16,7 @@ SOURCES     = \
               $I/util/debug.cc  \
               $I/labs/shell.cc  \
               $I/labs/coroutine.cc  \
+              $I/labs/fiber.cc  \
 
 ISO_SOURCES = \
               $O/iso/boot/$(NAME).exe   \
