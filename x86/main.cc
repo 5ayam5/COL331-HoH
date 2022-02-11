@@ -4,6 +4,7 @@
 #include "labs/shell.h"
 #include "labs/coroutine.h"
 #include "labs/fiber.h"
+#include "labs/fiber_scheduler.h"
 
 struct core_t{
   addr_t        vgatext_base;   //=addr_t(0xb8000);
@@ -24,6 +25,13 @@ struct core_t{
   uint32_t      f_debug1;
   uint8_t       f_array[ARRAY_SIZE] ALIGN(64);
   uint32_t      f_debug2;
+
+  //for fiber_scheduler
+  enum { STACKPTRS_SIZE=10};
+  size_t        stackptrs_size;
+  addr_t        stackptrs[STACKPTRS_SIZE];
+  size_t        arrays_size;
+  uint8_t       arrays[STACKPTRS_SIZE*ARRAY_SIZE] ALIGN(64);
 
   renderstate_t render_state; //separate renderstate from shellstate
 
@@ -74,6 +82,10 @@ extern "C" void core_init(core_t& core){
   core.f_arraysize    = sizeof(core.f_array);
   core.f_debug1       = 0xface600d; // for debug
   core.f_debug2       = 0xface600d;
+  core.stackptrs_size = core_t::STACKPTRS_SIZE;
+  core.arrays_size    = sizeof(core.arrays);
+
+  hoh_assert(core.arrays_size==core_t::STACKPTRS_SIZE*core_t::ARRAY_SIZE,"Bug: core.arrays_size="<<core.arrays_size);
 
   lpc_kbd_initialize(&core.lpc_kbd,0x60);
 
@@ -136,6 +148,9 @@ nokey:
 
   // execute shell for one time slot to do the some computation based on fiber, if required.
   shell_step_fiber(core.shell_state, core.main_stack, core.f_stack, core.f_array, core.f_arraysize);
+
+  // execute shell for one time slot to do the additional long computations based on fiber, if required.
+  shell_step_fiber_scheduler(core.shell_state, core.stackptrs, core.stackptrs_size, core.arrays, core.arrays_size);
 
   // shellstate -> renderstate: compute render state from shell state
   shell_render(core.shell_state, rendertmp);
