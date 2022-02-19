@@ -5,9 +5,10 @@
 
 // state for your coroutine implementation:
 struct f_t{
-
+    uint32_t n, a, b, c;
+    bool done = true;
+    uint32_t retVal;
     //insert your code here
-
 };
 
 

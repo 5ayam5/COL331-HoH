@@ -124,12 +124,13 @@ void setMenu(shellstate_t &stateinout, uint8_t newState) {
     stateinout.options[1] = "settings";
     break;
   case FUNCTIONS_MENU:
-    stateinout.len = 5;
+    stateinout.len = 6;
     stateinout.options[0] = "back";
     stateinout.options[1] = "factorial";
     stateinout.options[2] = "fibonacci";
     stateinout.options[3] = "add";
     stateinout.options[4] = "echo";
+    stateinout.options[5] = "coroutine";
     break;
   case SETTINGS_MENU:
     stateinout.len = 3;
@@ -356,6 +357,11 @@ void changeState(shellstate_t &stateinout) {
       stateinout.max_args = 1;
       stateinout.active_func = stateinout.highlighted;
       return;
+    case 5:
+      stateinout.state = COR;
+      stateinout.max_args = 1;
+      stateinout.active_func = stateinout.highlighted;
+      return;
     }
   } else if (stateinout.state == SETTINGS_MENU) {
     switch (stateinout.highlighted) {
@@ -516,6 +522,7 @@ void shell_step(shellstate_t &stateinout) {
     stateinout.refresh ^= 4;
   else
     stateinout.refresh = 0;
+  if(stateinout.state == COR)return;
   if (stateinout.state <= 3) {
     return;
   } else if (stateinout.state < 16) {
@@ -546,6 +553,10 @@ void shell_step(shellstate_t &stateinout) {
       case ECHO:
         echo(stateinout.input[0], stateinout.output);
         break;
+      // case COR:
+      //   parse_args(stateinout.input, stateinout.max_args, args);
+      //   fibonacci(args[0], stateinout.output);
+      //   break;
       }
       shell_refresh(stateinout, FUNCTIONS_MENU);
     }

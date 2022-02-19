@@ -20,6 +20,7 @@
 #define FACTORIAL 21
 #define FIBBONACCI 22
 #define ECHO 23
+#define COR 24
 #define ADD 32 // from 32 we keep the states where we are taking 2 arguments
 
 // key encodings
@@ -67,3 +68,10 @@ void shell_render(const shellstate_t &shell, renderstate_t &render);
 
 bool render_eq(const renderstate_t &a, const renderstate_t &b);
 void render(const renderstate_t &state, int w, int h, addr_t display_base);
+
+bool strcmp(const char *a, const char *b);
+uint8_t strlen(const char *str);
+uint32_t str_to_int(const char *str);
+void parse_args(char input[MAX_ARGS][BUF_LEN], uint8_t curr_arg, uint32_t *output);
+void int_to_string(uint32_t val, char *buf);
+void shell_refresh(shellstate_t &state, uint8_t flag);
