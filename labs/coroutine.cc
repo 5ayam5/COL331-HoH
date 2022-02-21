@@ -1,45 +1,48 @@
 #include "labs/coroutine.h"
-// #include "shell.cc"
 
-void coroutine_fib(shellstate_t& shellstate, coroutine_t& f_coro, f_t* f_locals){
-    uint32_t& a = f_locals->a;
-    uint32_t& b = f_locals->b;
-    uint32_t& n = f_locals->n;
-    bool& done = f_locals->done;
-    uint32_t& retVal = f_locals->retVal;
+void coroutine_fib(shellstate_t &shellstate, coroutine_t &f_coro, f_t &f_locals){
+  uint32_t &tmp = f_locals.tmp;
+  uint32_t &n = f_locals.n;
+  uint8_t &state = f_locals.state;
+  uint32_t &ret_val = f_locals.ret_val;
 
-    h_begin(f_coro);
+  h_begin(f_coro);
+  state = RUNNING;
+  tmp = 1, ret_val = 0;
 
-    a = 1;b = 0; retVal = 0;
+  while (n--) {
+    int tmp1 = ret_val;
+    ret_val = (ret_val + tmp) % MOD;
+    tmp = tmp1;
+    if (n % 1000000 == 0)
+      h_yield(f_coro);
+  }
+  state = DONE;
+  h_end(f_coro);
+}
+
+
+void shell_step_coroutine(shellstate_t &shellstate, coroutine_t &f_coro, f_t &f_locals){
+  if (shellstate.state != FIB_COROUTINE) {
+    f_locals.state = START;
+    coroutine_reset(f_coro);
+    return;
+  }
+  if (shellstate.curr_arg < shellstate.max_args)
+    return;
+  switch (f_locals.state) {
+  case START:
     uint32_t args[MAX_ARGS];
     parse_args(shellstate.input, shellstate.max_args, args);
-    n = args[0];
-    done = false;
-
-    while(n--){
-        retVal = (a+b)%MOD;
-        a = b;
-        b = retVal;
-        if(n%10==0)h_yield(f_coro);
-    }
-    int_to_string(retVal, shellstate.output);
-    done = true; h_end(f_coro);
+    f_locals.n = args[0];
+  case RUNNING:
+    coroutine_fib(shellstate, f_coro, f_locals);
+    break;
+  case DONE:
+    int_to_string(f_locals.ret_val, shellstate.output);
+    shell_refresh(shellstate, FUNCTIONS_MENU);
+    f_locals.state = START;
+    coroutine_reset(f_coro);
+    break;
+  }
 }
-
-
-void shell_step_coroutine(shellstate_t& shellstate, coroutine_t& f_coro, f_t& f_locals){
-    if (shellstate.state != COR){
-        coroutine_reset(f_coro);
-        return;
-    }
-    if (shellstate.curr_arg < shellstate.max_args) {
-      return;
-    }
-    coroutine_fib(shellstate, f_coro, &f_locals);
-    if(f_locals.done){
-        shell_refresh(shellstate, FUNCTIONS_MENU);
-        coroutine_reset(f_coro);
-    }
-}
-
-

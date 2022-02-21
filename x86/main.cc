@@ -147,10 +147,10 @@ nokey:
   shell_step_coroutine(core.shell_state, core.f_coro, core.f_locals);
 
   // execute shell for one time slot to do the some computation based on fiber, if required.
-  // shell_step_fiber(core.shell_state, core.main_stack, core.f_stack, core.f_array, core.f_arraysize);
+  shell_step_fiber(core.shell_state, core.main_stack, core.f_stack, core.f_array, core.f_arraysize);
 
   // execute shell for one time slot to do the additional long computations based on fiber, if required.
-  // shell_step_fiber_scheduler(core.shell_state, core.stackptrs, core.stackptrs_size, core.arrays, core.arrays_size);
+  shell_step_fiber_scheduler(core.shell_state, core.stackptrs, core.stackptrs_size, core.arrays, core.arrays_size);
 
   // shellstate -> renderstate: compute render state from shell state
   shell_render(core.shell_state, rendertmp);

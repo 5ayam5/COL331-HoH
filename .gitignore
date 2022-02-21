@@ -1,3 +1,4 @@
 qemu.log
 _tmp/
 .vscode/
+compile_flags.txt

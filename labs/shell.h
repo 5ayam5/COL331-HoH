@@ -8,11 +8,11 @@
 #define MOD 1000000007
 
 // shell states encoding
-#define START_MENU 0 // from 0-15 we have states where are only taking no input
+#define START_MENU 0          // from 0-15 we have states where are only taking no input
 #define FUNCTIONS_MENU 1
 #define SETTINGS_MENU 2
 #define COLOR_SETTINGS_MENU 3
-#define TEXT_COLOR 16                 // from 16-31 we have states where we are taking 1 argument from user
+#define TEXT_COLOR 16         // from 16-31 we have states where we are taking 1 argument from user
 #define OUTPUT_COLOR 17
 #define BACKGROUND_COLOR 18
 #define HIGHLIGHT_COLOR 19
@@ -20,8 +20,9 @@
 #define FACTORIAL 21
 #define FIBBONACCI 22
 #define ECHO 23
-#define COR 24
-#define ADD 32 // from 32 we keep the states where we are taking 2 arguments
+#define FIB_COROUTINE 24
+#define FIB_FIBER 25
+#define ADD 32                // from 32 we keep the states where we are taking 2 arguments
 
 // key encodings
 #define RIGHT_KEY 0x4d
@@ -40,6 +41,16 @@
 #define ORANGE 0x6
 #define WHITE 0x7
 
+// execution state
+#define START 0
+#define RUNNING 1
+#define DONE 2
+
+struct fiber_t {
+  uint32_t args[MAX_ARGS], ret_val;
+  uint8_t state;
+};
+
 struct shellstate_t {
   uint32_t key_count;
   const char *options[MAX_OPS];
@@ -49,6 +60,7 @@ struct shellstate_t {
   char input[MAX_ARGS][BUF_LEN];
   uint8_t background_color, text_color, output_color, highlight_color,
       selected_color;
+  struct fiber_t fiber;
 };
 
 struct renderstate_t {

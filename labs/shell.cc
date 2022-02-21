@@ -112,6 +112,7 @@ void shell_init(shellstate_t &state) {
   state.output[0] = 0;
   state.refresh = 7;
   state.curr_arg = 0;
+  state.max_args = MAX_ARGS;
   colors_init(state);
 }
 
@@ -124,13 +125,14 @@ void setMenu(shellstate_t &stateinout, uint8_t newState) {
     stateinout.options[1] = "settings";
     break;
   case FUNCTIONS_MENU:
-    stateinout.len = 6;
+    stateinout.len = 7;
     stateinout.options[0] = "back";
     stateinout.options[1] = "factorial";
     stateinout.options[2] = "fibonacci";
     stateinout.options[3] = "add";
     stateinout.options[4] = "echo";
-    stateinout.options[5] = "coroutine";
+    stateinout.options[5] = "coroutine_fib";
+    stateinout.options[6] = "fiber_fib";
     break;
   case SETTINGS_MENU:
     stateinout.len = 3;
@@ -161,6 +163,7 @@ void shell_refresh(shellstate_t &state, uint8_t flag) {
   }
   state.refresh = 7;
   state.curr_arg = 0;
+  state.max_args = MAX_ARGS;
 }
 
 //
@@ -358,7 +361,12 @@ void changeState(shellstate_t &stateinout) {
       stateinout.active_func = stateinout.highlighted;
       return;
     case 5:
-      stateinout.state = COR;
+      stateinout.state = FIB_COROUTINE;
+      stateinout.max_args = 1;
+      stateinout.active_func = stateinout.highlighted;
+      return;
+    case 6:
+      stateinout.state = FIB_FIBER;
       stateinout.max_args = 1;
       stateinout.active_func = stateinout.highlighted;
       return;
@@ -438,15 +446,17 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
     }
     break;
   case ENTER_KEY:
-    changeState(stateinout);
+    if (stateinout.curr_arg < stateinout.max_args)
+      changeState(stateinout);
     break;
   case BACKSPACE_KEY:
-    if (stateinout.state >= 16) {
-      stateinout.refresh |= 2;
-      if (stateinout.input_len[arg] > 0) {
-        stateinout.input[arg][--stateinout.input_len[arg]] = 0;
+    if (stateinout.curr_arg < stateinout.max_args)
+      if (stateinout.state >= 16) {
+        stateinout.refresh |= 2;
+        if (stateinout.input_len[arg] > 0) {
+          stateinout.input[arg][--stateinout.input_len[arg]] = 0;
+        }
       }
-    }
     break;
   case ESCAPE_KEY:
     if (TEXT_COLOR <= stateinout.state && stateinout.state <= SELECTED_COLOR) {
@@ -456,14 +466,15 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
     }
     break;
   default:
-    if (stateinout.state >= 16) {
-      stateinout.refresh |= 2;
-      char key = key_mapping(scankey);
-      if (stateinout.input_len[arg] < BUF_LEN - 1 && key != (char)-1) {
-        stateinout.input[arg][stateinout.input_len[arg]++] = key;
-        stateinout.input[arg][stateinout.input_len[arg]] = 0;
+    if (stateinout.curr_arg < stateinout.max_args)
+      if (stateinout.state >= 16) {
+        stateinout.refresh |= 2;
+        char key = key_mapping(scankey);
+        if (stateinout.input_len[arg] < BUF_LEN - 1 && key != (char)-1) {
+          stateinout.input[arg][stateinout.input_len[arg]++] = key;
+          stateinout.input[arg][stateinout.input_len[arg]] = 0;
+        }
       }
-    }
     break;
   }
   if (stateinout.refresh)
@@ -522,7 +533,8 @@ void shell_step(shellstate_t &stateinout) {
     stateinout.refresh ^= 4;
   else
     stateinout.refresh = 0;
-  if(stateinout.state == COR)return;
+  if(stateinout.state == FIB_COROUTINE || stateinout.state == FIB_FIBER)
+    return;
   if (stateinout.state <= 3) {
     return;
   } else if (stateinout.state < 16) {
@@ -553,10 +565,6 @@ void shell_step(shellstate_t &stateinout) {
       case ECHO:
         echo(stateinout.input[0], stateinout.output);
         break;
-      // case COR:
-      //   parse_args(stateinout.input, stateinout.max_args, args);
-      //   fibonacci(args[0], stateinout.output);
-      //   break;
       }
       shell_refresh(stateinout, FUNCTIONS_MENU);
     }
@@ -648,15 +656,15 @@ void render(const renderstate_t &state, int w, int h, addr_t vgatext_base) {
   uint8_t loc = 2;
   for (int i = 0; i < state.len; i++) {
     if (i == state.active_func) {
-      drawtext(loc, h - 2, state.options[i], 10, state.selected_color,
+      drawtext(loc, h - 2, state.options[i], BUF_LEN, state.selected_color,
                contrast_color(state.selected_color), w, h, vgatext_base);
     } else if (i == state.highlighted)
-      drawtext(loc, h - 2, state.options[i], 10, state.highlight_color,
+      drawtext(loc, h - 2, state.options[i], BUF_LEN, state.highlight_color,
                contrast_color(state.highlight_color), w, h, vgatext_base);
     else
-      drawtext(loc, h - 2, state.options[i], 10, state.background_color,
+      drawtext(loc, h - 2, state.options[i], BUF_LEN, state.background_color,
                state.text_color, w, h, vgatext_base);
-    loc += strlen(state.options[i]) + 4;
+    loc += strlen(state.options[i]) + 2;
   }
 }
 
