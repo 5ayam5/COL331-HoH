@@ -12,6 +12,7 @@
 #define FUNCTIONS_MENU 1
 #define SETTINGS_MENU 2
 #define COLOR_SETTINGS_MENU 3
+#define LONG_COMPUTATION_MENU 4
 #define TEXT_COLOR 16         // from 16-31 we have states where we are taking 1 argument from user
 #define OUTPUT_COLOR 17
 #define BACKGROUND_COLOR 18
@@ -20,9 +21,9 @@
 #define FACTORIAL 21
 #define FIBBONACCI 22
 #define ECHO 23
-#define FIB_COROUTINE 24
-#define FIB_FIBER 25
 #define ADD 32                // from 32 we keep the states where we are taking 2 arguments
+#define FIB_COROUTINE 48
+#define FIB_FIBER 49          // from 48 we keep the states where we are doing long computation
 
 // key encodings
 #define RIGHT_KEY 0x4d

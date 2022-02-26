@@ -125,14 +125,13 @@ void setMenu(shellstate_t &stateinout, uint8_t newState) {
     stateinout.options[1] = "settings";
     break;
   case FUNCTIONS_MENU:
-    stateinout.len = 7;
+    stateinout.len = 6;
     stateinout.options[0] = "back";
     stateinout.options[1] = "factorial";
     stateinout.options[2] = "fibonacci";
     stateinout.options[3] = "add";
     stateinout.options[4] = "echo";
-    stateinout.options[5] = "coroutine_fib";
-    stateinout.options[6] = "fiber_fib";
+    stateinout.options[5] = "long";
     break;
   case SETTINGS_MENU:
     stateinout.len = 3;
@@ -149,6 +148,11 @@ void setMenu(shellstate_t &stateinout, uint8_t newState) {
     stateinout.options[4] = "highlight";
     stateinout.options[5] = "selected";
     break;
+  case LONG_COMPUTATION_MENU:
+    stateinout.len = 3;
+    stateinout.options[0] = "back";
+    stateinout.options[1] = "coroutine_fib";
+    stateinout.options[2] = "fiber_fib";
   }
 }
 
@@ -361,15 +365,9 @@ void changeState(shellstate_t &stateinout) {
       stateinout.active_func = stateinout.highlighted;
       return;
     case 5:
-      stateinout.state = FIB_COROUTINE;
-      stateinout.max_args = 1;
-      stateinout.active_func = stateinout.highlighted;
-      return;
-    case 6:
-      stateinout.state = FIB_FIBER;
-      stateinout.max_args = 1;
-      stateinout.active_func = stateinout.highlighted;
-      return;
+      newState = LONG_COMPUTATION_MENU;
+      stateinout.highlighted = 0;
+      break;
     }
   } else if (stateinout.state == SETTINGS_MENU) {
     switch (stateinout.highlighted) {
@@ -416,7 +414,24 @@ void changeState(shellstate_t &stateinout) {
       echo(str, stateinout.output);
       return;
     }
-  } else if (stateinout.state >= 16) {
+  }else if(stateinout.state == LONG_COMPUTATION_MENU){ 
+    switch(stateinout.highlighted){
+    case 0:
+      newState = FUNCTIONS_MENU;
+      stateinout.highlighted = 0;
+      break;
+    case 1:
+      stateinout.state = FIB_COROUTINE;
+      stateinout.max_args = 1;
+      stateinout.active_func = stateinout.highlighted;
+      return;
+    case 2:
+      stateinout.state = FIB_FIBER;
+      stateinout.max_args = 1;
+      stateinout.active_func = stateinout.highlighted;
+      return;
+    }
+  }else if (stateinout.state >= 16) {
     stateinout.curr_arg++;
     return;
   }
@@ -461,8 +476,10 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
   case ESCAPE_KEY:
     if (TEXT_COLOR <= stateinout.state && stateinout.state <= SELECTED_COLOR) {
       shell_refresh(stateinout, COLOR_SETTINGS_MENU);
-    } else if (FACTORIAL <= stateinout.state) {
+    } else if (FACTORIAL <= stateinout.state && stateinout.state < FIB_COROUTINE) {
       shell_refresh(stateinout, FUNCTIONS_MENU);
+    } else if (FIB_COROUTINE <= stateinout.state) {
+      shell_refresh(stateinout, LONG_COMPUTATION_MENU);
     }
     break;
   default:

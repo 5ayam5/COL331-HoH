@@ -40,7 +40,7 @@ void shell_step_coroutine(shellstate_t &shellstate, coroutine_t &f_coro, f_t &f_
     break;
   case DONE:
     int_to_string(f_locals.ret_val, shellstate.output);
-    shell_refresh(shellstate, FUNCTIONS_MENU);
+    shell_refresh(shellstate, LONG_COMPUTATION_MENU);
     f_locals.state = START;
     coroutine_reset(f_coro);
     break;

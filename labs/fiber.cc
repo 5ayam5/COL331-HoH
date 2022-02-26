@@ -43,7 +43,7 @@ void shell_step_fiber(shellstate_t &shellstate, addr_t &main_stack, addr_t &f_st
     break;
   case DONE:
     int_to_string(shellstate.fiber.ret_val, shellstate.output);
-    shell_refresh(shellstate, FUNCTIONS_MENU);
+    shell_refresh(shellstate, LONG_COMPUTATION_MENU);
     shellstate.fiber.state = START;
     stack_init3(f_stack, f_array, f_arraysize, &fiber_fib, &main_stack, &f_stack, &shellstate.fiber);
     break;

@@ -13,8 +13,9 @@
 //      shellstate_t. (use array indexes as next pointers)
 // Note: malloc/new is not available at this point.
 //
+
+
+
 void shell_step_fiber_scheduler(shellstate_t& shellstate, addr_t stackptrs[], size_t stackptrs_size, addr_t arrays, size_t arrays_size){
-
-    //insert your code here
-
+    
 }
