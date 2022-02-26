@@ -87,7 +87,7 @@ void shellstate_t::shell_out(const char *buf)
       this->output[i][j] = this->output[i + 1][j];
   for (uint8_t i = 0; i < BUF_LEN; i++)
     this->output[MAX_LINES - 1][i] = buf[i];
-  this->refresh |= 4;
+  this->refresh |= 4 | 8;
 }
 
 //
@@ -104,7 +104,7 @@ void colors_init(shellstate_t &state) {
 }
 
 void shell_init(shellstate_t &state) {
-  state.curr_fiber = -1;
+  state.curr_fiber = 0;
   state.active_func = -1;
   state.key_count = 0;
   state.options[0] = "functions";
@@ -124,9 +124,9 @@ void shell_init(shellstate_t &state) {
   colors_init(state);
 }
 
-void setMenu(shellstate_t &stateinout, uint8_t newState) {
+void setMenu(shellstate_t &stateinout, uint8_t new_state) {
   stateinout.refresh |= 1;
-  switch (newState) {
+  switch (new_state) {
   case START_MENU:
     stateinout.len = 2;
     stateinout.options[0] = "functions";
@@ -157,10 +157,12 @@ void setMenu(shellstate_t &stateinout, uint8_t newState) {
     stateinout.options[5] = "selected";
     break;
   case LONG_COMPUTATION_MENU:
-    stateinout.len = 3;
+    stateinout.len = 5;
     stateinout.options[0] = "back";
     stateinout.options[1] = "coroutine_fib";
     stateinout.options[2] = "fiber_fib";
+    stateinout.options[3] = "scheduler_fib";
+    stateinout.options[4] = "scheduler_hanoi";
   }
 }
 
@@ -337,19 +339,19 @@ char key_mapping(uint8_t scancode) {
   return key;
 }
 
-void changeState(shellstate_t &stateinout) {
-  uint8_t newState = stateinout.state;
+void change_state(shellstate_t &stateinout) {
+  uint8_t new_state = stateinout.state;
   if (stateinout.state == START_MENU) {
     if (stateinout.highlighted == 0) {
-      newState = FUNCTIONS_MENU;
+      new_state = FUNCTIONS_MENU;
     } else if (stateinout.highlighted == 1) {
-      newState = SETTINGS_MENU;
+      new_state = SETTINGS_MENU;
     }
     stateinout.highlighted = 0;
   } else if (stateinout.state == FUNCTIONS_MENU) {
     switch (stateinout.highlighted) {
     case 0:
-      newState = START_MENU;
+      new_state = START_MENU;
       stateinout.highlighted = 0;
       break;
     case 1:
@@ -373,18 +375,18 @@ void changeState(shellstate_t &stateinout) {
       stateinout.active_func = stateinout.highlighted;
       return;
     case 5:
-      newState = LONG_COMPUTATION_MENU;
+      new_state = LONG_COMPUTATION_MENU;
       stateinout.highlighted = 0;
       break;
     }
   } else if (stateinout.state == SETTINGS_MENU) {
     switch (stateinout.highlighted) {
     case 0:
-      newState = START_MENU;
+      new_state = START_MENU;
       stateinout.highlighted = 0;
       break;
     case 1:
-      newState = COLOR_SETTINGS_MENU;
+      new_state = COLOR_SETTINGS_MENU;
       stateinout.highlighted = 0;
       break;
     case 2:
@@ -395,7 +397,7 @@ void changeState(shellstate_t &stateinout) {
   } else if (stateinout.state == COLOR_SETTINGS_MENU) {
     if (stateinout.highlighted == 0) {
       stateinout.highlighted = 0;
-      newState = SETTINGS_MENU;
+      new_state = SETTINGS_MENU;
     } else {
       switch (stateinout.highlighted) {
       case 1:
@@ -424,7 +426,7 @@ void changeState(shellstate_t &stateinout) {
   } else if (stateinout.state == LONG_COMPUTATION_MENU) {
     switch (stateinout.highlighted) {
     case 0:
-      newState = FUNCTIONS_MENU;
+      new_state = FUNCTIONS_MENU;
       stateinout.highlighted = 0;
       break;
     case 1:
@@ -437,13 +439,23 @@ void changeState(shellstate_t &stateinout) {
       stateinout.max_args = 1;
       stateinout.active_func = stateinout.highlighted;
       return;
+    case 3:
+      stateinout.state = SCHEDULER_FIB;
+      stateinout.max_args = 1;
+      stateinout.active_func = stateinout.highlighted;
+      return;
+    case 4:
+      stateinout.state = SCHEDULER_HANOI;
+      stateinout.max_args = 1;
+      stateinout.active_func = stateinout.highlighted;
+      return;
     }
-  } else if (stateinout.state >= 16) {
+  } else if (stateinout.state >= FUNCTIONS) {
     stateinout.curr_arg++;
     return;
   }
-  stateinout.state = newState;
-  setMenu(stateinout, newState);
+  stateinout.state = new_state;
+  setMenu(stateinout, new_state);
 }
 
 void shell_update(uint8_t scankey, shellstate_t &stateinout) {
@@ -452,20 +464,24 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
   uint8_t arg = stateinout.curr_arg;
   switch (scankey) {
   case LEFT_KEY:
-    if (stateinout.highlighted > 0)
-      stateinout.highlighted--;
-    else
-      stateinout.highlighted = stateinout.len - 1;
+    if (stateinout.active_func == (uint8_t)-1) {
+      if (stateinout.highlighted > 0)
+        stateinout.highlighted--;
+      else
+        stateinout.highlighted = stateinout.len - 1;
+    }
     break;
   case RIGHT_KEY:
-    if (stateinout.highlighted < stateinout.len - 1)
-      stateinout.highlighted++;
-    else
-      stateinout.highlighted = 0;
+    if (stateinout.active_func == (uint8_t)-1) {
+      if (stateinout.highlighted < stateinout.len - 1)
+        stateinout.highlighted++;
+      else
+        stateinout.highlighted = 0;
+    }
     break;
   case ENTER_KEY:
     if (stateinout.curr_arg < stateinout.max_args)
-      changeState(stateinout);
+      change_state(stateinout);
     break;
   case BACKSPACE_KEY:
     if (stateinout.curr_arg < stateinout.max_args)
@@ -554,7 +570,7 @@ void shell_step(shellstate_t &stateinout) {
     stateinout.refresh ^= 8;
   else
     stateinout.refresh = 0;
-  if (stateinout.state == FIB_COROUTINE || stateinout.state == FIB_FIBER)
+  if (stateinout.state >= FIB_COROUTINE)
     return;
   if (stateinout.state <= 3) {
     return;

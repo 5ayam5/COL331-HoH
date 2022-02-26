@@ -25,12 +25,9 @@ void coroutine_fib(shellstate_t &shellstate, coroutine_t &f_coro, f_t &f_locals)
 void shell_step_coroutine(shellstate_t &shellstate, coroutine_t &f_coro, f_t &f_locals){
   switch (f_locals.state) {
   case START:
-    if (shellstate.state != FIB_COROUTINE) {
-      coroutine_reset(f_coro);
+    if (shellstate.state != FIB_COROUTINE || shellstate.curr_arg < shellstate.max_args)
       return;
-    }
-    if (shellstate.curr_arg < shellstate.max_args)
-      return;
+    coroutine_reset(f_coro);
     uint32_t args[MAX_ARGS];
     parse_args(shellstate.input, shellstate.max_args, args);
     f_locals.n = args[0];

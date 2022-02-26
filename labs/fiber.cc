@@ -27,12 +27,9 @@ void fiber_fib(addr_t *pmain_stack, addr_t *pf_stack, fiber_t *fiber) {
 void shell_step_fiber(shellstate_t &shellstate, addr_t &main_stack, preempt_t preempt, addr_t &f_stack, addr_t f_array, uint32_t f_arraysize, dev_lapic_t &lapic) {
   switch(shellstate.fiber.state) {
   case START:
-    if (shellstate.state != FIB_FIBER) {
-      stack_init3(f_stack, f_array, f_arraysize, &fiber_fib, &main_stack, &f_stack, &shellstate.fiber);
+    if (shellstate.state != FIB_FIBER || shellstate.curr_arg < shellstate.max_args)
       return;
-    }
-    if (shellstate.curr_arg < shellstate.max_args)
-      return;
+    stack_init3(f_stack, f_array, f_arraysize, &fiber_fib, &main_stack, &f_stack, &shellstate.fiber);
     uint32_t args[MAX_ARGS];
     parse_args(shellstate.input, shellstate.max_args, args);
     for (uint8_t i = 0; i < shellstate.max_args; i++)
@@ -47,7 +44,6 @@ void shell_step_fiber(shellstate_t &shellstate, addr_t &main_stack, preempt_t pr
     strcpy(buf, str);
     int_to_string(shellstate.fiber.ret_val, buf + strlen(str));
     shellstate.shell_out(buf);
-    shell_refresh(shellstate, LONG_COMPUTATION_MENU);
     shellstate.fiber.state = START;
     stack_init3(f_stack, f_array, f_arraysize, &fiber_fib, &main_stack, &f_stack, &shellstate.fiber);
     break;

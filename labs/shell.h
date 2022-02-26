@@ -2,7 +2,7 @@
 #include "util/config.h"
 #include "util/debug.h"
 
-#define MAX_FIBERS 5
+#define MAX_FIBERS 10
 
 #define BUF_LEN 80
 #define MAX_OPS 10
@@ -16,6 +16,7 @@
 #define SETTINGS_MENU 2
 #define COLOR_SETTINGS_MENU 3
 #define LONG_COMPUTATION_MENU 4
+#define FUNCTIONS 16
 #define TEXT_COLOR                                                             \
   16 // from 16-31 we have states where we are taking 1 argument from user
 #define OUTPUT_COLOR 17
@@ -25,10 +26,12 @@
 #define FACTORIAL 21
 #define FIBBONACCI 22
 #define ECHO 23
-#define ADD 32 // from 32 we keep the states where we are taking 2 arguments
-#define FIB_COROUTINE 48
-#define FIB_FIBER                                                              \
-  49 // from 48 we keep the states where we are doing long computation
+#define ADD 32 // from 32-47 we keep the states where we are taking 2 arguments
+#define FIB_COROUTINE                                                          \
+  48 // from 48 we keep the states where we are doing long computation
+#define FIB_FIBER 49
+#define SCHEDULER_FIB 64
+#define SCHEDULER_HANOI 65
 
 // key encodings
 #define RIGHT_KEY 0x4d
@@ -52,9 +55,13 @@
 #define RUNNING 1
 #define DONE 2
 
+typedef void (*fptr)(void);
+
 struct fiber_t {
   uint32_t args[MAX_ARGS], ret_val;
   uint8_t state;
+  fptr f;
+  char fun_name[BUF_LEN];
 };
 
 struct shellstate_t {
