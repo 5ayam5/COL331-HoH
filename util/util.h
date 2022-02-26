@@ -3,6 +3,7 @@
 #include "util/config.h"
 #include "util/debug.h"
 #include <new>
+#include <utility>
 
 
 #define XSTR(x) #x
