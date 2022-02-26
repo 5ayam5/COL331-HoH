@@ -1,4 +1,11 @@
-qemu.log
 _tmp/
 .vscode/
 compile_flags.txt
+.*
+tags
+cscope.out
+a.out
+*.exe
+*.o
+*.log
+*.hi
