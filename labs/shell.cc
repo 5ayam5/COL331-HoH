@@ -9,6 +9,12 @@ bool strcmp(const char *a, const char *b) {
   return *a == *b;
 }
 
+void strcpy(char *a, const char *b) {
+  while (*b)
+    *a++ = *b++;
+  *a = 0;
+}
+
 uint8_t strlen(const char *str) {
   uint8_t len = 0;
   while (*str++)
@@ -52,36 +58,36 @@ void int_to_string(uint32_t val, char *buf) {
 
 // shell commands
 
-void factorial(uint32_t n, char *buf) {
+uint32_t factorial(uint32_t n) {
   uint32_t ret = n;
   ret %= MOD;
   if (n == 0)
     ret = 1;
   while (n > 1)
     ret = (ret * (--n)) % MOD;
-  int_to_string(ret, buf);
+  return ret;
 }
 
-void fibonacci(uint32_t n, char *buf) {
+uint32_t fibonacci(uint32_t n) {
   uint32_t a = 1, b = 0, c = 0;
   while (n--) {
     c = (a + b) % MOD;
     a = b;
     b = c;
   }
-  int_to_string(c, buf);
+  return c;
 }
 
-void add(uint32_t a, uint32_t b, char *buf) { int_to_string(a + b, buf); }
+uint32_t add(uint32_t a, uint32_t b) { return a + b; }
 
-void echo(const char *a, char *buf) {
-  int i = 0;
-  while (*a) {
-    buf[i] = *a;
-    *a++;
-    i++;
-  }
-  buf[i] = '\0';
+void shellstate_t::shell_out(const char *buf)
+{
+  for (uint8_t i = 0; i < MAX_LINES - 1; i++)
+    for (uint8_t j = 0; j < BUF_LEN; j++)
+      this->output[i][j] = this->output[i + 1][j];
+  for (uint8_t i = 0; i < BUF_LEN; i++)
+    this->output[MAX_LINES - 1][i] = buf[i];
+  this->refresh |= 4;
 }
 
 //
@@ -105,11 +111,12 @@ void shell_init(shellstate_t &state) {
   state.len = 2;
   state.highlighted = 0;
   state.state = 0;
-  for (int i = 0; i < MAX_ARGS; i++) {
+  for (uint8_t i = 0; i < MAX_ARGS; i++) {
     state.input[i][0] = 0;
     state.input_len[i] = 0;
   }
-  state.output[0] = 0;
+  for (uint8_t i = 0; i < MAX_LINES; i++)
+    state.output[i][0] = 0;
   state.refresh = 7;
   state.curr_arg = 0;
   state.max_args = MAX_ARGS;
@@ -388,7 +395,6 @@ void changeState(shellstate_t &stateinout) {
     if (stateinout.highlighted == 0) {
       stateinout.highlighted = 0;
       newState = SETTINGS_MENU;
-      stateinout.output[0]=0;
     } else {
       switch (stateinout.highlighted) {
       case 1:
@@ -411,11 +417,11 @@ void changeState(shellstate_t &stateinout) {
       stateinout.active_func = stateinout.highlighted;
       const char *str = "0: Black, 1: Blue, 2: Green, 3: Cyan, 4: Red, 5: "
                         "Magenta, 6: Orange, 7: White";
-      echo(str, stateinout.output);
+      stateinout.shell_out(str);
       return;
     }
-  }else if(stateinout.state == LONG_COMPUTATION_MENU){ 
-    switch(stateinout.highlighted){
+  } else if (stateinout.state == LONG_COMPUTATION_MENU) {
+    switch (stateinout.highlighted) {
     case 0:
       newState = FUNCTIONS_MENU;
       stateinout.highlighted = 0;
@@ -431,7 +437,7 @@ void changeState(shellstate_t &stateinout) {
       stateinout.active_func = stateinout.highlighted;
       return;
     }
-  }else if (stateinout.state >= 16) {
+  } else if (stateinout.state >= 16) {
     stateinout.curr_arg++;
     return;
   }
@@ -445,20 +451,16 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
   uint8_t arg = stateinout.curr_arg;
   switch (scankey) {
   case LEFT_KEY:
-    if (stateinout.active_func == (uint8_t)-1) {
-      if (stateinout.highlighted > 0)
-        stateinout.highlighted--;
-      else
-        stateinout.highlighted = stateinout.len - 1;
-    }
+    if (stateinout.highlighted > 0)
+      stateinout.highlighted--;
+    else
+      stateinout.highlighted = stateinout.len - 1;
     break;
   case RIGHT_KEY:
-    if (stateinout.active_func == (uint8_t)-1) {
-      if (stateinout.highlighted < stateinout.len - 1)
-        stateinout.highlighted++;
-      else
-        stateinout.highlighted = 0;
-    }
+    if (stateinout.highlighted < stateinout.len - 1)
+      stateinout.highlighted++;
+    else
+      stateinout.highlighted = 0;
     break;
   case ENTER_KEY:
     if (stateinout.curr_arg < stateinout.max_args)
@@ -476,7 +478,8 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
   case ESCAPE_KEY:
     if (TEXT_COLOR <= stateinout.state && stateinout.state <= SELECTED_COLOR) {
       shell_refresh(stateinout, COLOR_SETTINGS_MENU);
-    } else if (FACTORIAL <= stateinout.state && stateinout.state < FIB_COROUTINE) {
+    } else if (FACTORIAL <= stateinout.state &&
+               stateinout.state < FIB_COROUTINE) {
       shell_refresh(stateinout, FUNCTIONS_MENU);
     } else if (FIB_COROUTINE <= stateinout.state) {
       shell_refresh(stateinout, LONG_COMPUTATION_MENU);
@@ -495,7 +498,7 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
     break;
   }
   if (stateinout.refresh)
-    stateinout.refresh |= 4;
+    stateinout.refresh |= 8;
   hoh_debug("Got: " << unsigned(scankey));
 }
 
@@ -505,8 +508,8 @@ uint8_t contrast_color(uint8_t color) { return WHITE - color; }
 // color
 void change_color(shellstate_t &stateinout, uint8_t color) {
   if (color > 7) {
-    echo("Invalid index entered, please choose an index from 0 to 7",
-         stateinout.output);
+    const char *str = "Invalid index entered, please choose an index from 0 to 7";
+    stateinout.shell_out(str);
     return;
   }
   switch (stateinout.state) {
@@ -546,11 +549,11 @@ void change_color(shellstate_t &stateinout, uint8_t color) {
 // do computation
 //
 void shell_step(shellstate_t &stateinout) {
-  if (stateinout.refresh & 4)
-    stateinout.refresh ^= 4;
+  if (stateinout.refresh & 8)
+    stateinout.refresh ^= 8;
   else
     stateinout.refresh = 0;
-  if(stateinout.state == FIB_COROUTINE || stateinout.state == FIB_FIBER)
+  if (stateinout.state == FIB_COROUTINE || stateinout.state == FIB_FIBER)
     return;
   if (stateinout.state <= 3) {
     return;
@@ -566,21 +569,25 @@ void shell_step(shellstate_t &stateinout) {
       change_color(stateinout, args[0]);
       shell_refresh(stateinout, COLOR_SETTINGS_MENU);
     } else {
+        char buf[BUF_LEN] = {0};
       switch (stateinout.state) {
       case FACTORIAL:
         parse_args(stateinout.input, stateinout.max_args, args);
-        factorial(args[0], stateinout.output);
+        int_to_string(factorial(args[0]), buf);
+        stateinout.shell_out(buf);
         break;
       case FIBBONACCI:
         parse_args(stateinout.input, stateinout.max_args, args);
-        fibonacci(args[0], stateinout.output);
+        int_to_string(fibonacci(args[0]), buf);
+        stateinout.shell_out(buf);
         break;
       case ADD:
         parse_args(stateinout.input, stateinout.max_args, args);
-        add(args[0], args[1], stateinout.output);
+        int_to_string(add(args[0], args[1]), buf);
+        stateinout.shell_out(buf);
         break;
       case ECHO:
-        echo(stateinout.input[0], stateinout.output);
+        stateinout.shell_out(stateinout.input[0]);
         break;
       }
       shell_refresh(stateinout, FUNCTIONS_MENU);
@@ -600,10 +607,11 @@ void shell_render(const shellstate_t &shell, renderstate_t &render) {
   }
   render.highlighted = shell.highlighted;
   render.refresh = shell.refresh;
-  for (int i = 0; i < BUF_LEN; i++)
-    render.output[i] = shell.output[i];
+  for (uint8_t i = 0; i < MAX_LINES; i++)
+    for (uint8_t j = 0; j < BUF_LEN; j++)
+      render.output[i][j] = shell.output[i][j];
   render.curr_arg = shell.curr_arg;
-  for (int i = 0; i <= shell.curr_arg; i++) {
+  for (uint8_t i = 0; i <= shell.curr_arg; i++) {
     render.input[i] = shell.input[i];
   }
   render.background_color = shell.background_color;
@@ -620,7 +628,7 @@ bool render_eq(const renderstate_t &a, const renderstate_t &b) {
   bool ret = a.key_count == b.key_count && a.len == b.len &&
              a.highlighted == b.highlighted && a.refresh == b.refresh &&
              a.curr_arg == b.curr_arg && a.active_func == b.active_func &&
-             strcmp(a.output, b.output) == 0;
+             strcmp(a.output[MAX_LINES - 1], b.output[MAX_LINES - 1]) == 0;
   if (!ret)
     return ret;
   for (int i = 0; i < a.len; i++) {
@@ -652,7 +660,11 @@ void render(const renderstate_t &state, int w, int h, addr_t vgatext_base) {
              h, vgatext_base);
   }
   if (state.refresh & 2) {
-    fillrect(0, 0, w, h - 3, state.background_color, state.background_color, w,
+    fillrect(0, 0, w, MAX_ARGS, state.background_color, state.background_color, w,
+             h, vgatext_base);
+  }
+  if (state.refresh & 4) {
+    fillrect(0, MAX_ARGS + 2, w, h - 3, state.background_color, state.background_color, w,
              h, vgatext_base);
   }
   for (int i = 0; i <= state.curr_arg; i++) {
@@ -660,10 +672,12 @@ void render(const renderstate_t &state, int w, int h, addr_t vgatext_base) {
              state.text_color, w, h, vgatext_base);
   }
   for (int x = 0; x + 1 <= w; x++) {
-    writecharxy(x, MAX_ARGS + 1, 0xc4, state.background_color, contrast_color(state.background_color), w, h, vgatext_base);
+    writecharxy(x, MAX_ARGS + 1, 0xc4, state.background_color,
+                contrast_color(state.background_color), w, h, vgatext_base);
   }
-  drawtext(0, MAX_ARGS + 2, state.output, BUF_LEN, state.background_color,
-           state.output_color, w, h, vgatext_base);
+  for (uint8_t i = 0; i < MAX_LINES; i++)
+    drawtext(0, MAX_ARGS + 2 + i, state.output[i], BUF_LEN, state.background_color,
+             state.output_color, w, h, vgatext_base);
 
   // menu rendering
   drawrect(0, h - 3, w, h, contrast_color(state.background_color),

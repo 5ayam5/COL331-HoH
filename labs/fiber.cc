@@ -25,24 +25,28 @@ void fiber_fib(addr_t *pmain_stack, addr_t *pf_stack, fiber_t *fiber) {
 }
 
 void shell_step_fiber(shellstate_t &shellstate, addr_t &main_stack, addr_t &f_stack, addr_t f_array, uint32_t f_arraysize) {
-  if (shellstate.state != FIB_FIBER) {
-    shellstate.fiber.state = START;
-    stack_init3(f_stack, f_array, f_arraysize, &fiber_fib, &main_stack, &f_stack, &shellstate.fiber);
-    return;
-  }
-  if (shellstate.curr_arg < shellstate.max_args)
-    return;
   switch(shellstate.fiber.state) {
   case START:
+    if (shellstate.state != FIB_FIBER) {
+      stack_init3(f_stack, f_array, f_arraysize, &fiber_fib, &main_stack, &f_stack, &shellstate.fiber);
+      return;
+    }
+    if (shellstate.curr_arg < shellstate.max_args)
+      return;
     uint32_t args[MAX_ARGS];
     parse_args(shellstate.input, shellstate.max_args, args);
     for (uint8_t i = 0; i < shellstate.max_args; i++)
       shellstate.fiber.args[i] = args[i];
+    shell_refresh(shellstate, LONG_COMPUTATION_MENU);
   case RUNNING:
     stack_saverestore(main_stack, f_stack);
     break;
   case DONE:
-    int_to_string(shellstate.fiber.ret_val, shellstate.output);
+    char buf[BUF_LEN] = {0};
+    const char *str = "fiber_fib: ";
+    strcpy(buf, str);
+    int_to_string(shellstate.fiber.ret_val, buf + strlen(str));
+    shellstate.shell_out(buf);
     shell_refresh(shellstate, LONG_COMPUTATION_MENU);
     shellstate.fiber.state = START;
     stack_init3(f_stack, f_array, f_arraysize, &fiber_fib, &main_stack, &f_stack, &shellstate.fiber);

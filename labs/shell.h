@@ -5,15 +5,17 @@
 #define BUF_LEN 80
 #define MAX_OPS 10
 #define MAX_ARGS 10
+#define MAX_LINES 9
 #define MOD 1000000007
 
 // shell states encoding
-#define START_MENU 0          // from 0-15 we have states where are only taking no input
+#define START_MENU 0 // from 0-15 we have states where are only taking no input
 #define FUNCTIONS_MENU 1
 #define SETTINGS_MENU 2
 #define COLOR_SETTINGS_MENU 3
 #define LONG_COMPUTATION_MENU 4
-#define TEXT_COLOR 16         // from 16-31 we have states where we are taking 1 argument from user
+#define TEXT_COLOR                                                             \
+  16 // from 16-31 we have states where we are taking 1 argument from user
 #define OUTPUT_COLOR 17
 #define BACKGROUND_COLOR 18
 #define HIGHLIGHT_COLOR 19
@@ -21,9 +23,10 @@
 #define FACTORIAL 21
 #define FIBBONACCI 22
 #define ECHO 23
-#define ADD 32                // from 32 we keep the states where we are taking 2 arguments
+#define ADD 32 // from 32 we keep the states where we are taking 2 arguments
 #define FIB_COROUTINE 48
-#define FIB_FIBER 49          // from 48 we keep the states where we are doing long computation
+#define FIB_FIBER                                                              \
+  49 // from 48 we keep the states where we are doing long computation
 
 // key encodings
 #define RIGHT_KEY 0x4d
@@ -57,18 +60,20 @@ struct shellstate_t {
   const char *options[MAX_OPS];
   uint8_t len, highlighted, state, refresh, curr_arg, max_args, active_func,
       input_len[MAX_ARGS];
-  char output[BUF_LEN];
+  char output[MAX_LINES][BUF_LEN];
   char input[MAX_ARGS][BUF_LEN];
   uint8_t background_color, text_color, output_color, highlight_color,
       selected_color;
   struct fiber_t fiber;
+
+  void shell_out(const char *buf);
 };
 
 struct renderstate_t {
   uint32_t key_count;
   const char *options[MAX_OPS];
   uint8_t len, highlighted, refresh, curr_arg, active_func;
-  char output[BUF_LEN];
+  char output[MAX_LINES][BUF_LEN];
   const char *input[MAX_ARGS];
   uint8_t background_color, text_color, output_color, highlight_color,
       selected_color;
@@ -83,8 +88,10 @@ bool render_eq(const renderstate_t &a, const renderstate_t &b);
 void render(const renderstate_t &state, int w, int h, addr_t display_base);
 
 bool strcmp(const char *a, const char *b);
+void strcpy(char *a, const char *b);
 uint8_t strlen(const char *str);
 uint32_t str_to_int(const char *str);
-void parse_args(char input[MAX_ARGS][BUF_LEN], uint8_t curr_arg, uint32_t *output);
+void parse_args(char input[MAX_ARGS][BUF_LEN], uint8_t curr_arg,
+                uint32_t *output);
 void int_to_string(uint32_t val, char *buf);
 void shell_refresh(shellstate_t &state, uint8_t flag);

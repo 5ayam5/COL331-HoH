@@ -23,24 +23,27 @@ void coroutine_fib(shellstate_t &shellstate, coroutine_t &f_coro, f_t &f_locals)
 
 
 void shell_step_coroutine(shellstate_t &shellstate, coroutine_t &f_coro, f_t &f_locals){
-  if (shellstate.state != FIB_COROUTINE) {
-    f_locals.state = START;
-    coroutine_reset(f_coro);
-    return;
-  }
-  if (shellstate.curr_arg < shellstate.max_args)
-    return;
   switch (f_locals.state) {
   case START:
+    if (shellstate.state != FIB_COROUTINE) {
+      coroutine_reset(f_coro);
+      return;
+    }
+    if (shellstate.curr_arg < shellstate.max_args)
+      return;
     uint32_t args[MAX_ARGS];
     parse_args(shellstate.input, shellstate.max_args, args);
     f_locals.n = args[0];
+    shell_refresh(shellstate, LONG_COMPUTATION_MENU);
   case RUNNING:
     coroutine_fib(shellstate, f_coro, f_locals);
     break;
   case DONE:
-    int_to_string(f_locals.ret_val, shellstate.output);
-    shell_refresh(shellstate, LONG_COMPUTATION_MENU);
+    char buf[BUF_LEN] = {0};
+    const char *str = "coroutine_fib: ";
+    strcpy(buf, str);
+    int_to_string(f_locals.ret_val, buf + strlen(str));
+    shellstate.shell_out(buf);
     f_locals.state = START;
     coroutine_reset(f_coro);
     break;
