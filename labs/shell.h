@@ -2,6 +2,8 @@
 #include "util/config.h"
 #include "util/debug.h"
 
+#define MAX_FIBERS 5
+
 #define BUF_LEN 80
 #define MAX_OPS 10
 #define MAX_ARGS 10
@@ -59,12 +61,12 @@ struct shellstate_t {
   uint32_t key_count;
   const char *options[MAX_OPS];
   uint8_t len, highlighted, state, refresh, curr_arg, max_args, active_func,
-      input_len[MAX_ARGS];
+      curr_fiber, input_len[MAX_ARGS];
   char output[MAX_LINES][BUF_LEN];
   char input[MAX_ARGS][BUF_LEN];
   uint8_t background_color, text_color, output_color, highlight_color,
       selected_color;
-  struct fiber_t fiber;
+  struct fiber_t fiber, fibers[MAX_FIBERS];
 
   void shell_out(const char *buf);
 };

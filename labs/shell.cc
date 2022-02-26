@@ -104,6 +104,7 @@ void colors_init(shellstate_t &state) {
 }
 
 void shell_init(shellstate_t &state) {
+  state.curr_fiber = -1;
   state.active_func = -1;
   state.key_count = 0;
   state.options[0] = "functions";
