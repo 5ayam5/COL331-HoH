@@ -2,7 +2,6 @@
 
 #include "util/config.h"
 
-
 //
 // preempt_t : State for your timer/preemption handler
 //
@@ -23,12 +22,12 @@
 // See Definition of core_t in x86/main.h
 //
 
+#define TIMER_COUNT 10000000
+
 struct preempt_t{
-  // your data structure, if any
-  addr_t saved_stack; //feel free to change it - provided as an example
-
+  uint32_t self_yield;
+  addr_t saved_stack;
 };
-
 
 //
 // 
@@ -39,22 +38,47 @@ struct preempt_t{
 // _f   : C function to be called 
 //        ex: we may have to do send EOI to LAPIC or PIC etc.
 //
-#  define  _ring0_preempt(_name,_f)            \
-  __asm(                                       \
-      "  .text                            \n\t"\
-      " " STR(_name) ":                   \n\t"\
-      "  pushl %edx                       \n\t"\
-      "  pushl %ecx                       \n\t"\
-      "  pushl %eax                       \n\t"\
-      "  call " STR(_f) "                 \n\t"\
-      "  popl  %eax                       \n\t"\
-      "  popl  %ecx                       \n\t"\
-      "  popl  %edx                       \n\t"\
-      "                                   \n\t"\
-      "  # insert your code here          \n\t"\
-      "                                   \n\t"\
-      "                                   \n\t"\
-      "  jmp iret_toring0                 \n\t"\
-      )                                        \
 
-
+#  define  _ring0_preempt(_name,_f)                         \
+  __asm(                                                    \
+      "  .text                                         \n\t"\
+      " " STR(_name) ":                                \n\t"\
+      "  pushl %edx                                    \n\t"\
+      "  pushl %ecx                                    \n\t"\
+      "  pushl %eax                                    \n\t"\
+      "  call " STR(_f) "                              \n\t"\
+      "  popl  %eax                                    \n\t"\
+      "  popl  %ecx                                    \n\t"\
+      "  popl  %edx                                    \n\t"\
+      "                                                \n\t"\
+      "  pushl %eax                                    \n\t"\
+      "  pushl %edx                                    \n\t"\
+      "  movl  %gs:" STR(core_offset_preempt) ",%eax   \n\t"\
+      "  movl  (%eax),%edx                             \n\t"\
+      "  cmp   %edx,0                                  \n\t"\
+      "  jne   2f                                      \n\t"\
+      "                                                \n\t"\
+      "  pushl %ebx                                    \n\t"\
+      "  pushl %ecx                                    \n\t"\
+      "  pushl %ebp                                    \n\t"\
+      "  pushl %esi                                    \n\t"\
+      "  pushl %edi                                    \n\t"\
+      "  pushl $1f                                     \n\t"\
+      "                                                \n\t"\
+      "  movl  %esp,4(%eax)                            \n\t"\
+      "  movl  %gs:" STR(core_offset_mainstack) ",%eax \n\t"\
+      "  movl  (%eax),%esp                             \n\t"\
+      "  ret                                           \n\t"\
+      "                                                \n\t"\
+      "  1:                                            \n\t"\
+      "  popl  %edi                                    \n\t"\
+      "  popl  %esi                                    \n\t"\
+      "  popl  %ebp                                    \n\t"\
+      "  popl  %ecx                                    \n\t"\
+      "  popl  %ebx                                    \n\t"\
+      "                                                \n\t"\
+      "  2:                                            \n\t"\
+      "  popl  %edx                                    \n\t"\
+      "  popl  %eax                                    \n\t"\
+      "  jmp iret_toring0                              \n\t"\
+      )
