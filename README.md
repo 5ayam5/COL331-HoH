@@ -20,3 +20,10 @@ Select the **fiber_fib** option. We have implemented Fibonacci function as the l
 We have made 2 functions for this, scheduler_fib and scheduler_hanoi. They are the fibonacci and Tower of Hanoi function respectively. The complexity of both the functions is exponential. Input of around 30 for fibonacci and 20 for Tower of Hanoi takes appx 20s for computation and displaying the result. We can run multiple instances of scheduler_fib at the same time and so is true for scheduler_hanoi also. We can also run multiple instances of scheduler_fib along with scheduler_hanoi. The key press counts are also updates simultaneously. 
 
 <img src="./resources/2_3.gif" align="center">  
+
+
+# 2.4
+We have converted scheduler_fib into the preempted function. scheduler_hanoi stays the same implemented in 2.3. They are the fibonacci and Tower of Hanoi function respectively. The complexity of both the functions is exponential. Input of around 45 for fibonacci and 20 for Tower of Hanoi takes appx 20s for computation and displaying the result. We can run multiple instances of scheduler_fib at the same time and so is true for scheduler_hanoi also. We can also run multiple instances of scheduler_fib along with scheduler_hanoi. The key press counts are also updates simultaneously. 
+
+<img src="./resources/2_4.gif" align="center">  
+

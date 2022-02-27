@@ -69,6 +69,7 @@ struct preempt_t{
       "  fxsave (%esp)                                 \n\t"\
       "  pushl %ebp                                    \n\t"\
       "  pushl $1f                                     \n\t"\
+      "  sti                                           \n\t"\
       "                                                \n\t"\
       "  movl  %esp,%gs:" STR(core_offset_preempt) "+4 \n\t"\
       "  movl  %gs:" STR(core_offset_mainstack) ",%esp \n\t"\
