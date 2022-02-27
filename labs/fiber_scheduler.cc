@@ -20,8 +20,7 @@ uint32_t fib(addr_t &main_stack, addr_t &f_stack, preempt_t &preempt, uint32_t n
   if (n == 1)
       return 1;
   // stack_saverestore(f_stack, main_stack);
-  hoh_debug(n);
-  return fib(main_stack, f_stack, preempt, n - 1) + fib(main_stack, f_stack, preempt, n - 2);
+  return (fib(main_stack, f_stack, preempt, n - 1) + fib(main_stack, f_stack, preempt, n - 2)) % MOD;
 }
 
 uint32_t hanoi(addr_t &main_stack, addr_t &f_stack, preempt_t &preempt, uint32_t n) {
@@ -29,7 +28,7 @@ uint32_t hanoi(addr_t &main_stack, addr_t &f_stack, preempt_t &preempt, uint32_t
       return 0;
   preempt.self_yield = true;
   stack_saverestore(f_stack, main_stack);
-  return hanoi(main_stack, f_stack, preempt, n - 1) + hanoi(main_stack, f_stack, preempt, n - 1) + 1;
+  return (hanoi(main_stack, f_stack, preempt, n - 1) + hanoi(main_stack, f_stack, preempt, n - 1) + 1) % MOD;
 }
 
 void scheduler1(addr_t *pmain_stack, addr_t *pf_stack, preempt_t *ppreempt, fiber_t *fiber) {
@@ -94,10 +93,8 @@ void shell_step_fiber_scheduler(shellstate_t &shellstate, addr_t &main_stack, pr
     stack_saverestore(main_stack, f_stack);
     if (preempt.self_yield)
       lapic.reset_timer_count(0);
-    else {
-      hoh_debug("preempted!");
+    else
       f_stack = preempt.saved_stack;
-    }
     break;
 
   case DONE:

@@ -51,34 +51,40 @@ struct preempt_t{
       "  popl  %ecx                                    \n\t"\
       "  popl  %edx                                    \n\t"\
       "                                                \n\t"\
-      "  pushl %eax                                    \n\t"\
-      "  pushl %edx                                    \n\t"\
-      "  movl  %gs:" STR(core_offset_preempt) ",%eax   \n\t"\
-      "  movl  (%eax),%edx                             \n\t"\
-      "  cmp   %edx,0                                  \n\t"\
-      "  jne   2f                                      \n\t"\
       "                                                \n\t"\
+      "  cmp   $0,%gs:" STR(core_offset_preempt) "     \n\t"\
+      "  jne   iret_toring0                            \n\t"\
+      "                                                \n\t"\
+      "  pushl %eax                                    \n\t"\
       "  pushl %ebx                                    \n\t"\
       "  pushl %ecx                                    \n\t"\
+      "  pushl %edx                                    \n\t"\
       "  pushl %ebp                                    \n\t"\
       "  pushl %esi                                    \n\t"\
       "  pushl %edi                                    \n\t"\
+      "                                                \n\t"\
+      "  movl  %esp,%ebp                               \n\t"\
+      "  subl  $512,%esp                               \n\t"\
+      "  andl  $0xfffffff0,%esp                        \n\t"\
+      "  fxsave (%esp)                                 \n\t"\
+      "  pushl %ebp                                    \n\t"\
       "  pushl $1f                                     \n\t"\
       "                                                \n\t"\
-      "  movl  %esp,4(%eax)                            \n\t"\
-      "  movl  %gs:" STR(core_offset_mainstack) ",%eax \n\t"\
-      "  movl  (%eax),%esp                             \n\t"\
+      "  movl  %esp,%gs:" STR(core_offset_preempt) "+4 \n\t"\
+      "  movl  %gs:" STR(core_offset_mainstack) ",%esp \n\t"\
       "  ret                                           \n\t"\
       "                                                \n\t"\
-      "  1:                                            \n\t"\
+      "1:                                              \n\t"\
+      "  popl  %ebp                                    \n\t"\
+      "  fxrstor (%esp)                                \n\t"\
+      "  movl  %ebp, %esp                              \n\t"\
       "  popl  %edi                                    \n\t"\
       "  popl  %esi                                    \n\t"\
       "  popl  %ebp                                    \n\t"\
+      "  popl  %edx                                    \n\t"\
       "  popl  %ecx                                    \n\t"\
       "  popl  %ebx                                    \n\t"\
-      "                                                \n\t"\
-      "  2:                                            \n\t"\
-      "  popl  %edx                                    \n\t"\
       "  popl  %eax                                    \n\t"\
-      "  jmp iret_toring0                              \n\t"\
+      "                                                \n\t"\
+      "  jmp   iret_toring0                            \n\t"\
       )
