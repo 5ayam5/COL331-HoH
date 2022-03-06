@@ -158,6 +158,7 @@ class dev_lapic_t{
       xapic_lvt_timer_mask_wrf(&m_dev,masked?xapic_masked:xapic_not_masked);
     }
 
+  public:
     void icr_rawwr(uint8_t vector, xapic_vdm_t dlv_mode,
         xapic_int_level_t level, xapic_trigm_t trig_mode,
         xapic_dst_shorthand_t dst_short, uint8_t dest){

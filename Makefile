@@ -58,6 +58,7 @@ CXXFLAGS    = -std=c++0x \
 
 #options specific for except.cc
 CXXFLAGS.x86/except.cc = $(NO_SIMD)
+CXXFLAGS.util/lib.cc   = $(NO_SIMD) -fno-tree-loop-distribute-patterns
 
 # simd
 CXXFLAGS.x86/main.cc             = -msse -msse2 -mfpmath=sse

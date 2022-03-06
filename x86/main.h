@@ -19,6 +19,7 @@
 
 #include "util/multiboot.h" //multiboot: for bsp
 
+#include "util/shm.h"
 
 struct config_t{
   io_t   pic_base;//=0;
@@ -80,35 +81,32 @@ struct core_t{
   addr_t        main_stackend_cached;
   preempt_t     preempt;
 
-  addr_t        mastermsg;
-  addr_t        mymsg;
   bitpool_t     pool4M;
   bitpool_t     pool4K;
   size_t        magic;  //=0xface600d;
 
   config_t      config;
   hal_t         hal;
+  shm_t         shm;
   apps_t        apps;
 
 public:
   // Note: called on a tiny stack
-  core_t(int trank, addr_t tmastermsg, addr_t tmymsg, const bitpool_t& p4M, const bitpool_t& p4K, addr_t tstack, size_t tstacksize, const config_t& tconfig):
+  core_t(int trank, addr_t tmastermsg, const bitpool_t& p4M, const bitpool_t& p4K, addr_t tstack, size_t tstacksize, const config_t& tconfig):
     self(this),
     rank(trank),
     main_stackbegin(tstack), // XXX: reset the pool too
     main_stacksize(tstacksize),
     main_stackend_cached(tstack+tstacksize),
     preempt(),
-    mastermsg(tmastermsg),
-    mymsg(tmymsg),
     pool4M(p4M),
     pool4K(p4K),
     config(tconfig),
-    hal(tstack,tstacksize,addr_t(this),sizeof(core_t),allocT<dev_pde32_t>(pool4K),tconfig)
+    hal(tstack,tstacksize,addr_t(this),sizeof(core_t),allocT<dev_pde32_t>(pool4K),tconfig),
+    shm(trank,tmastermsg)
   {
     main_stack = addr_t(0xfacebaad); //to tell you that their value is random
     magic=0xface600d;
-
   }
 };
 
