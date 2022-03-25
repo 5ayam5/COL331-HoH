@@ -28,20 +28,15 @@
 // Shared between Producer and Consumer
 //
 struct channel_t{
-  public:
+public:
+  size_t left, right;
 
-    //insert your code here
-
-  public:
-
-    //
-    // Intialize
-    //
-    channel_t(){
-
-      // insert your code here
-
-    }
+  //
+  // Intialize
+  //
+  channel_t(){
+    this->left = this->right = 0;
+  }
 };
 
 
@@ -50,19 +45,16 @@ struct channel_t{
 //
 struct writeport_t{
 public:
-    //insert your code here
-
-public:
+  size_t sz, right, left;
 
   //
   // Intialize
   //
   writeport_t(size_t tsize)
   {
-    //insert code here
+    this->sz = tsize;
+    this->right = this->left = 0;
   }
-
-public:
 
   //
   // no of entries available to write
@@ -70,29 +62,24 @@ public:
   // helper function for write_canreserve
   //
   size_t write_reservesize(){
-
-    // insert your code here
-
-    return 0;
+    return this->left > this->right ? this->left - this->right : this->sz - this->right + this->left;
   }
 
   //
   // Can write 'n' entries?
   //
   bool write_canreserve(size_t n){
-
-    // insert your code here
-
-    return false;
+    return n <= this->write_reservesize();
   }
 
   //
   // Reserve 'n' entries for write
   //
   size_t write_reserve(size_t n){
-    // insert your code here
-
-    return 0;
+    hoh_assert(write_canreserve(n), "write_reserve");
+    size_t ret = this->right;
+    this->right = (this->right + n) % this->sz;
+    return ret;
   }
 
   //
@@ -101,66 +88,47 @@ public:
   // Read/Write shared memory data structure
   //
   void write_release(channel_t& ch){
-
-    // insert your code here
-
+    ch.right = this->right;
   }
-
-
-
-
-public:
 
   //
   //
   // Read/Write shared memory data structure
   //
   void read_acquire(channel_t& ch){
-
-    //insert your code here
-
+    this->left = ch.left;
   }
-
-
-
 
   //
   // No of entires available to delete
   //
   size_t delete_reservesize(){
-    //insert your code here
-
-    return 0;
+    return this->right >= this->left ? this->right - this->left : this->sz - this->left + this->right;
   }
 
   //
   // Can delete 'n' entires?
   //
   bool delete_canreserve(size_t n){
-    //insert your code here
-
-    return false;
+    return n <= this->delete_reservesize();
   }
 
   //
   // Reserve 'n' entires for deletion
   //
   size_t delete_reserve(size_t n){
-    //insert your code here
-
-    return 0;
+    hoh_assert(delete_canreserve(n), "delete_reserve");
+    size_t ret = this->left;
+    this->left = (this->left + n) % this->sz;
+    return ret;
   }
-
 
   //
   // Update the state, if any.
   //
   void delete_release(){
-    //insert your code here
-
+    return;
   }
-
-
 };
 
 
@@ -170,70 +138,54 @@ public:
 //
 struct readport_t{
 public:
+  size_t sz, right, left;
 
-  //insert your code here
-
-
-public:
   //
   // Initialize
   //
   readport_t(size_t tsize)
   {
-
-    //insert your code here
-
+    this->sz = tsize;
+    this->right = this->left = 0;
   }
-  public:
 
   //
   // Read/Write shared memory data structure
   //
   void write_acquire(channel_t& ch){
-
-    //insert your code here
-
+    this->right = ch.right;
   }
 
   //
   // no of entries available to read
   //
   size_t read_reservesize(){
-
-    //insert your code here
-
-    return 0;
+    return this->right >= this->left ? this->right - this->left : this->sz - this->left + this->right;
   }
 
   //
   // Can Read 'n' entires?
   //
   bool read_canreserve(size_t n){
-
-    //insert your code here
-
-    return false;
+    return n <= this->read_reservesize();
   }
 
   //
   // Reserve 'n' entires to be read
   //
   size_t read_reserve(size_t n){
-
-    //insert your code here
-
-    return 0;
+    hoh_assert(read_canreserve(n), "read_reserve");
+    size_t ret = this->left;
+    this->left = (this->left + n) % this->sz;
+    return ret;
   }
 
   //
   // Read/write shared memory data structure
   //
   void read_release(channel_t& ch){
-
-    //insert your code here
-
+    ch.left = this->left;
   }
-
 };
 
 

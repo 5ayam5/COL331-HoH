@@ -5,7 +5,7 @@
 
 bool strcmp(const char *a, const char *b) {
   while (*a && *b && *a == *b)
-    a++;
+    a++, b++;
   return *a == *b;
 }
 
@@ -87,7 +87,7 @@ void shellstate_t::shell_out(const char *buf)
       this->output[i][j] = this->output[i + 1][j];
   for (uint8_t i = 0; i < BUF_LEN; i++)
     this->output[MAX_LINES - 1][i] = buf[i];
-  this->refresh |= 4 | 8;
+  this->refresh ^= 4;
 }
 
 //
@@ -125,7 +125,7 @@ void shell_init(shellstate_t &state) {
 }
 
 void setMenu(shellstate_t &stateinout, uint8_t new_state) {
-  stateinout.refresh |= 1;
+  stateinout.refresh ^= 1;
   switch (new_state) {
   case START_MENU:
     stateinout.len = 2;
@@ -460,7 +460,6 @@ void change_state(shellstate_t &stateinout) {
 
 void shell_update(uint8_t scankey, shellstate_t &stateinout) {
   stateinout.key_count++;
-  stateinout.refresh = 0;
   uint8_t arg = stateinout.curr_arg;
   switch (scankey) {
   case LEFT_KEY:
@@ -486,7 +485,7 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
   case BACKSPACE_KEY:
     if (stateinout.curr_arg < stateinout.max_args)
       if (stateinout.state >= 16) {
-        stateinout.refresh |= 2;
+        stateinout.refresh ^= 2;
         if (stateinout.input_len[arg] > 0) {
           stateinout.input[arg][--stateinout.input_len[arg]] = 0;
         }
@@ -505,7 +504,7 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
   default:
     if (stateinout.curr_arg < stateinout.max_args)
       if (stateinout.state >= 16) {
-        stateinout.refresh |= 2;
+        stateinout.refresh ^= 2;
         char key = key_mapping(scankey);
         if (stateinout.input_len[arg] < BUF_LEN - 1 && key != (char)-1) {
           stateinout.input[arg][stateinout.input_len[arg]++] = key;
@@ -514,8 +513,6 @@ void shell_update(uint8_t scankey, shellstate_t &stateinout) {
       }
     break;
   }
-  if (stateinout.refresh)
-    stateinout.refresh |= 8;
   hoh_debug("Got: " << unsigned(scankey));
 }
 
@@ -566,10 +563,6 @@ void change_color(shellstate_t &stateinout, uint8_t color) {
 // do computation
 //
 void shell_step(shellstate_t &stateinout) {
-  if (stateinout.refresh & 8)
-    stateinout.refresh ^= 8;
-  else
-    stateinout.refresh = 0;
   if (stateinout.state >= FIB_COROUTINE)
     return;
   if (stateinout.state <= 3) {
@@ -645,14 +638,15 @@ bool render_eq(const renderstate_t &a, const renderstate_t &b) {
   bool ret = a.key_count == b.key_count && a.len == b.len &&
              a.highlighted == b.highlighted && a.refresh == b.refresh &&
              a.curr_arg == b.curr_arg && a.active_func == b.active_func &&
-             strcmp(a.output[MAX_LINES - 1], b.output[MAX_LINES - 1]) == 0;
+             strcmp(a.output[MAX_LINES - 1], b.output[MAX_LINES - 1]);
   if (!ret)
     return ret;
+
   for (int i = 0; i < a.len; i++) {
-    ret = ret && strcmp(a.options[i], b.options[i]) == 0;
+    ret = ret && strcmp(a.options[i], b.options[i]);
   }
   for (int i = 0; i < a.curr_arg; i++) {
-    ret = ret && strcmp(a.input[i], b.input[i]) == 0;
+    ret = ret && strcmp(a.input[i], b.input[i]);
   }
   return ret;
 }
@@ -672,18 +666,12 @@ static void drawnumberinhex(int x, int y, uint32_t number, int maxw, uint8_t bg,
 // Given a render state, we need to write it into vgatext buffer
 //
 void render(const renderstate_t &state, int w, int h, addr_t vgatext_base) {
-  if (state.refresh & 1) {
-    fillrect(0, h - 3, w, h, state.background_color, state.background_color, w,
-             h, vgatext_base);
-  }
-  if (state.refresh & 2) {
-    fillrect(0, 0, w, MAX_ARGS, state.background_color, state.background_color, w,
-             h, vgatext_base);
-  }
-  if (state.refresh & 4) {
-    fillrect(0, MAX_ARGS + 2, w, h - 3, state.background_color, state.background_color, w,
-             h, vgatext_base);
-  }
+  fillrect(0, h - 3, w, h, state.background_color, state.background_color, w,
+            h, vgatext_base);
+  fillrect(0, 0, w, MAX_ARGS, state.background_color, state.background_color, w,
+            h, vgatext_base);
+  fillrect(0, MAX_ARGS + 2, w, h - 3, state.background_color, state.background_color, w,
+            h, vgatext_base);
   for (int i = 0; i <= state.curr_arg; i++) {
     drawtext(0, i, state.input[i], BUF_LEN, state.background_color,
              state.text_color, w, h, vgatext_base);
